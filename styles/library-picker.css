@@ -9,7 +9,8 @@
 /* The "Add from Library" picker. Almost everything it looks like comes from base.css — the header
    chrome, the search field, the tag chips and panel, the row band, the folder line and the indent
    gutter are all shared primitives now, so this file only has what is genuinely this window's:
-   its own column layout for a checkbox-and-a-name row, and the checkbox itself.
+   its own column layout for a checkbox-and-a-name row, the checkbox itself, and the folder row's
+   fold button.
 
    It is a window of its own, outside the console's element, so it carries .audio-console for
    base.css's tokens and its own sibling class from there — same arrangement as the tag manager. */
@@ -52,22 +53,80 @@
 
   /* The row's own layout, the one thing .ac-row in base.css deliberately leaves to each list:
      gutter, checkbox, name. Nothing competes with the name for the remaining width, so it gets
-     all of it. */
+     all of it. line-height: 1 so the name's line box is not lopsided against the box beside it
+     (.claude/rules/ui-patterns.md, flexbox gotchas). */
   .ac-picker-row {
     display: flex;
     gap: 8px;
+    line-height: 1;
   }
 
+  /* The box is painted here outright. Core draws a checkbox as a Font Awesome glyph at
+     --checkbox-size (20px) on ::before, over an appearance:none input — so on a 15px input the
+     glyph overflowed downward and sat visibly below the name, and its unticked colour
+     (--color-cool-4) was a near-black square on a near-black row. accent-color never reached it
+     either: there is no native control left for it to tint.
+
+     So ::before is dropped, the input itself is the box, and ::after carries the mark. The rim is
+     --ac-text-dim rather than --ac-border for the same reason as the dialogs' switch: a #2a323c
+     edge on these surfaces is no edge at all. Still a plain checkbox underneath — focus, keyboard
+     and `indeterminate` all behave natively. */
   .ac-picker-check {
+    position: relative;
     flex: 0 0 auto;
-    width: 15px;
-    height: 15px;
+    box-sizing: border-box;
+    width: 16px;
+    height: 16px;
     margin: 0;
-    /* Paints the tick and the filled box in the module's gold instead of the browser's default —
-       one property, no bespoke box to rebuild, and the native control keeps its own focus ring
-       and keyboard behaviour. */
-    accent-color: var(--ac-accent);
+    border: 1px solid var(--ac-text-dim);
+    border-radius: 3px;
+    background: var(--ac-surface-2);
     cursor: pointer;
+    transition: background var(--ac-motion) ease, border-color var(--ac-motion) ease;
+
+    &::before {
+      content: none;
+    }
+
+    &::after {
+      content: none;
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      width: auto;
+      height: auto;
+      color: var(--ac-accent-ink);
+      font-family: var(--font-awesome);
+      font-size: 10px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    &:hover {
+      border-color: var(--ac-text);
+    }
+
+    &:checked,
+    &:indeterminate {
+      border-color: var(--ac-accent);
+      background: var(--ac-accent);
+    }
+
+    &:checked::after {
+      content: "\f00c";
+    }
+
+    /* A folder with only part of its contents selected. Listed after :checked so the dash wins if
+       both ever hold at once. */
+    &:indeterminate::after {
+      content: "\f068";
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ac-focus);
+      outline-offset: 2px;
+    }
   }
 
   .ac-picker-name {
@@ -79,31 +138,40 @@
     color: var(--ac-text);
   }
 
-  /* A folder row is a real <button> here (see library-picker.js #renderFolderRow), so it arrives
-     with the form-control look core gives buttons — none of which .ac-row can assume, since the
-     Library tab's folder rows are divs. Undone to the row band base.css already describes.
+  /* A folder row is a div holding its checkbox and a fold <button> (library-picker.js
+     #renderFolderRow). The button arrives with the form-control look core gives buttons, undone
+     here so the row band base.css describes shows through it, hover included.
 
      justify-content is the one that is easy to miss and impossible to ignore: core lays a button
-     out as a centred flex box, so without this the whole folder line — indent gutter included —
-     floats in the middle of the row and every nesting level looks the same depth. */
-  .ac-row-folder {
+     out as a centred flex box, so without it the icon, name and count float in the middle of the
+     row. height: 100% because core gives buttons a height of their own, which opts them out of
+     the row's stretch. */
+  .ac-picker-folder-toggle {
     display: flex;
+    flex: 1 1 auto;
+    align-items: center;
     justify-content: flex-start;
     gap: 8px;
-    width: 100%;
-    border: 0 solid var(--ac-border);
+    box-sizing: border-box;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
     border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: inherit;
     font-family: inherit;
     font-size: inherit;
+    font-weight: inherit;
     line-height: 1;
     text-align: left;
     text-shadow: none;
+    cursor: pointer;
 
-    /* Written as border-width rather than a second `border-bottom` shorthand because the reset
-       above is more specific than base.css's .ac-row-boundary and would otherwise erase the one
-       separator a collapsed folder is supposed to draw under itself. */
-    &.ac-row-boundary {
-      border-bottom-width: 1px;
+    &:hover {
+      background: none;
+      box-shadow: none;
     }
   }
 

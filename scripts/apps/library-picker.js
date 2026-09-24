@@ -7,7 +7,7 @@
  */
 
 import { CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, MODULE_ID } from "../constants.js";
-import { humanizeName } from "../helpers.js";
+import { dirnameOf, humanizeName } from "../helpers.js";
 import * as library from "../library/index.js";
 import { TREE_INDENT, buildFolderTree, flattenFolderTree, renderTreeGutter } from "./folder-tree.js";
 
@@ -124,7 +124,8 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** @type {object[]} The flattened folder/entry rows currently painted. */
   #rows = [];
 
-  #matchedCount = 0;
+  /** @type {object[]} Every entry the current filters match, collapsed folders included. */
+  #matched = [];
 
   /** @type {HTMLElement|null} */ #tableEl = null;
   /** @type {HTMLElement|null} */ #rowsEl = null;
@@ -247,9 +248,8 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** Rebuild the row set from the candidate pool and repaint. */
   #applyFilter() {
     if (!this.#tableEl) return;
-    const matched = this.#matchingEntries();
-    this.#matchedCount = matched.length;
-    this.#rows = flattenFolderTree(buildFolderTree(matched), this.#collapsedFolders);
+    this.#matched = this.#matchingEntries();
+    this.#rows = flattenFolderTree(buildFolderTree(this.#matched), this.#collapsedFolders);
     this.#paintRows();
     this.#updateStatus();
   }
@@ -259,6 +259,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#rowsEl.innerHTML = this.#rows
       .map(row => (row.kind === "folder" ? this.#renderFolderRow(row) : this.#renderRow(row)))
       .join("");
+    this.#syncFolderChecks();
 
     // Two different empty states, and they need different words: an empty pool means everything in
     // the library is already in this container, while an empty result means the filters are too
@@ -295,13 +296,18 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   }
 
   /**
-   * A folder header: the same icon/name/count line the Library tab draws, as one plain button.
+   * A folder header: a checkbox for everything under it, then the same icon/name/count line the
+   * Library tab draws as one plain button that folds it.
    *
-   * A button rather than the Library's `role="row"` div because this list has no grid to be a row
-   * of, and a folder that only a mouse can fold is a folder a keyboard user cannot get past. That
-   * choice is also why the Library's bulk "collapse subfolders" control is not here — it would
-   * have to be a button inside a button (.claude/rules/ui-patterns.md: never), and one-click-per-folder is
-   * no hardship in a window opened to pick a handful of tracks.
+   * The row itself is a div holding the two as siblings rather than one button, because a
+   * checkbox inside a button is interactive content nested in interactive content
+   * (.claude/rules/ui-patterns.md: never). The fold stays a real button so a keyboard user can
+   * get past a folder, and the checkbox is a real checkbox so it tabs and toggles like a track's.
+   * Its checked/indeterminate state is set afterwards by #syncFolderChecks — `indeterminate` has
+   * no HTML attribute to write here.
+   *
+   * The Library's bulk "collapse subfolders" control is still not here: one-click-per-folder is no
+   * hardship in a window opened to pick a handful of tracks.
    * @param {{path: string, name: string, depth: number, count: number}} row
    * @returns {string}
    */
@@ -312,22 +318,74 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     // Collapsed, this row *is* the whole folder, so it closes itself off; expanded, its contents
     // follow and the separator belongs after the last of them instead.
     const boundary = collapsed ? " ac-row-boundary" : "";
-    return `<button type="button" class="ac-row ac-row-folder${boundary}"
-        data-action="toggleFolder" data-folder-path="${path}" aria-expanded="${collapsed ? "false" : "true"}">
+    const label = e(game.i18n.format("AUDIO_CONSOLE.Picker.SelectFolder", { name: row.name }));
+    return `<div class="ac-row ac-row-folder ac-picker-row${boundary}">
       ${renderTreeGutter(row.depth)}
-      <i class="fa-solid ${collapsed ? "fa-folder" : "fa-folder-open"} ac-folder-icon${collapsed ? "" : " open"}" inert></i>
-      <span class="ac-folder-name" title="${path}">${e(row.name)}</span>
-      <span class="ac-folder-count">(${row.count})</span>
-    </button>`;
+      <input type="checkbox" class="ac-picker-check" data-folder-check="${path}" aria-label="${label}" data-tooltip="${label}">
+      <button type="button" class="ac-picker-folder-toggle"
+          data-action="toggleFolder" data-folder-path="${path}" aria-expanded="${collapsed ? "false" : "true"}">
+        <i class="fa-solid ${collapsed ? "fa-folder" : "fa-folder-open"} ac-folder-icon${collapsed ? "" : " open"}" inert></i>
+        <span class="ac-folder-name" title="${path}">${e(row.name)}</span>
+        <span class="ac-folder-count">(${row.count})</span>
+      </button>
+    </div>`;
+  }
+
+  /**
+   * Is this entry anywhere under `folder`, nested subfolders included? Folder paths are the same
+   * normalized dirname prefixes buildFolderTree walked, so a prefix match is the whole test.
+   * @param {object} entry
+   * @param {string} folder
+   * @returns {boolean}
+   */
+  static #isUnder(entry, folder) {
+    const dir = dirnameOf(entry.path);
+    return (dir === folder) || dir.startsWith(`${folder}/`);
+  }
+
+  /**
+   * Reconcile every painted folder checkbox with #selected: ticked when all of its matched
+   * entries are selected, indeterminate when only some are. Counted in one pass over the matched
+   * entries, crediting each to every ancestor prefix of its own directory, rather than one pass
+   * per folder — a few hundred folders over a few thousand tracks is otherwise real work on every
+   * tick.
+   */
+  #syncFolderChecks() {
+    const tally = new Map();
+    for (const entry of this.#matched) {
+      const dir = dirnameOf(entry.path);
+      const selected = this.#selected.has(entry.path);
+      for (let i = dir.indexOf("/"); ; i = dir.indexOf("/", i + 1)) {
+        const prefix = i === -1 ? dir : dir.slice(0, i);
+        const counts = tally.get(prefix) ?? { total: 0, selected: 0 };
+        counts.total++;
+        if (selected) counts.selected++;
+        tally.set(prefix, counts);
+        if (i === -1) break;
+      }
+    }
+    for (const input of this.#rowsEl.querySelectorAll("[data-folder-check]")) {
+      const counts = tally.get(input.dataset.folderCheck);
+      input.checked = !!counts && (counts.selected === counts.total);
+      input.indeterminate = !!counts && (counts.selected > 0) && (counts.selected < counts.total);
+    }
+  }
+
+  /** Mirror #selected onto every painted checkbox, tracks and folders alike. */
+  #syncChecks() {
+    for (const input of this.#rowsEl.querySelectorAll("[data-path]")) {
+      input.checked = this.#selected.has(input.dataset.path);
+    }
+    this.#syncFolderChecks();
   }
 
   /** The footer count and the submit button's own badge, which are the same number. */
   #updateStatus() {
     const count = this.#selected.size;
     if (this.#statusEl) {
-      this.#statusEl.textContent = (this.#matchedCount === this.#candidates.length)
+      this.#statusEl.textContent = (this.#matched.length === this.#candidates.length)
         ? game.i18n.format("AUDIO_CONSOLE.Picker.Status.Total", { count, total: this.#candidates.length })
-        : game.i18n.format("AUDIO_CONSOLE.Picker.Status.Filtered", { count, shown: this.#matchedCount, total: this.#candidates.length });
+        : game.i18n.format("AUDIO_CONSOLE.Picker.Status.Filtered", { count, shown: this.#matched.length, total: this.#candidates.length });
     }
     if (this.#submitEl) this.#submitEl.disabled = count === 0;
     if (this.#submitCountEl) {
@@ -348,11 +406,27 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#syncClearFilters();
   }, SEARCH_DEBOUNCE_MS);
 
+  /**
+   * A folder's box selects or clears everything the current filters match under it — collapsed
+   * subfolders included, for the same reason Select All reaches into them. A partly selected
+   * folder fills up rather than emptying: the browser has already flipped the box to checked, and
+   * "tick the rest" is the likelier intent than throwing away the part already picked.
+   */
   #onCheckChange = event => {
-    const input = event.target.closest("[data-path]");
-    if (!input) return;
-    if (input.checked) this.#selected.add(input.dataset.path);
-    else this.#selected.delete(input.dataset.path);
+    const input = event.target;
+    if (input.dataset.folderCheck !== undefined) {
+      const folder = input.dataset.folderCheck;
+      for (const entry of this.#matched) {
+        if (!AudioConsoleLibraryPicker.#isUnder(entry, folder)) continue;
+        if (input.checked) this.#selected.add(entry.path);
+        else this.#selected.delete(entry.path);
+      }
+      this.#syncChecks();
+    } else if (input.dataset.path !== undefined) {
+      if (input.checked) this.#selected.add(input.dataset.path);
+      else this.#selected.delete(input.dataset.path);
+      this.#syncFolderChecks();
+    } else return;
     this.#updateStatus();
   };
 
@@ -416,15 +490,15 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
    * @this {AudioConsoleLibraryPicker}
    */
   static async #onSelectAll() {
-    for (const entry of this.#matchingEntries()) this.#selected.add(entry.path);
-    for (const input of this.#rowsEl.querySelectorAll("[data-path]")) input.checked = true;
+    for (const entry of this.#matched) this.#selected.add(entry.path);
+    this.#syncChecks();
     this.#updateStatus();
   }
 
   /** @this {AudioConsoleLibraryPicker} */
   static async #onClearSelection() {
     this.#selected.clear();
-    for (const input of this.#rowsEl.querySelectorAll("[data-path]")) input.checked = false;
+    this.#syncChecks();
     this.#updateStatus();
   }
 

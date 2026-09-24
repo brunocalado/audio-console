@@ -166,6 +166,7 @@
       "Title": "Add from Library",
       "SelectAll": "Select All",
       "ClearSelection": "Clear Selection",
+      "SelectFolder": "Select everything in {name}",
       "Submit": "Add Selected",
       "Empty": "Everything in the library is already here.",
       "NoMatches": "Nothing matches these filters.",
