@@ -1,0 +1,108 @@
+{{!-- The "Add from Library" picker renders its chrome only. The row list is populated
+      imperatively by library-picker.js from the candidate set, out of the same folder-tree model
+      the Library tab uses (folder-tree.js) so the two lists look and fold identically. --}}
+<section class="ac-picker">
+
+    <header class="ac-section-header">
+        <div class="ac-filter-controls">
+            <search class="ac-search">
+                <i class="fa-solid fa-magnifying-glass" inert></i>
+                <input type="search" data-picker-search value="{{filters.text}}" autocomplete="off" autofocus
+                       placeholder="{{localize "AUDIO_CONSOLE.Library.Search.Placeholder"}}"
+                       aria-label="{{localize "AUDIO_CONSOLE.Library.Search.Label"}}">
+            </search>
+            {{!-- Same channel facet as the Library tab's, in the bar rather than among the tag
+                  chips: it filters a field, not vocabulary. --}}
+            <div class="ac-channel-filter" role="group" aria-label="{{localize "AUDIO_CONSOLE.Library.Channel.Filter"}}">
+                {{#each channels as |chip|}}
+                <button type="button" class="ac-channel-filter-option{{#if chip.active}} active{{/if}}"
+                        data-action="toggleChannel" data-channel="{{chip.value}}"
+                        data-tooltip="{{localize chip.label}}"
+                        aria-pressed="{{#if chip.active}}true{{else}}false{{/if}}">
+                    <i class="fa-solid {{chip.icon}}" inert></i>
+                    <span class="ac-visually-hidden" inert>{{localize chip.label}}</span>
+                </button>
+                {{/each}}
+            </div>
+            <button type="button" class="ac-button ac-tag-toggle{{#if tagPanelOpen}} active{{/if}}"
+                    data-action="toggleTagPanel" aria-expanded="{{#if tagPanelOpen}}true{{else}}false{{/if}}"
+                    aria-controls="ac-picker-tag-panel">
+                <i class="fa-solid fa-tags" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Tags.Toggle"}}</span>
+                {{#if filters.tagCount}}
+                <span class="ac-tag-toggle-count" inert>{{filters.tagCount}}</span>
+                {{/if}}
+            </button>
+            {{!-- Always rendered, hidden until a filter is on: typing in the search field does
+                  not re-render this window (that would take the field's own focus with it), so
+                  library-picker.js toggles this button's `hidden` in place instead. --}}
+            <button type="button" class="ac-button" data-action="clearFilters"{{#unless filters.hasAny}} hidden{{/unless}}>
+                <i class="fa-solid fa-filter-circle-xmark" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Tags.Clear"}}</span>
+            </button>
+        </div>
+        {{!-- The submit button lives up here with the other controls, not in a footer of its own:
+              a picker over a few thousand tracks is scrolled, and a confirm button parked below
+              the list is the one control a GM has to leave the list to reach. --}}
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="selectAll">
+                <i class="fa-solid fa-check-double" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Picker.SelectAll"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="clearSelection">
+                <i class="fa-solid fa-xmark" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Picker.ClearSelection"}}</span>
+            </button>
+            <button type="button" class="ac-button ac-button-primary" data-action="submit" data-picker-submit disabled>
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Picker.Submit"}}</span>
+                <span class="ac-tag-toggle-count" data-picker-submit-count hidden></span>
+            </button>
+        </div>
+    </header>
+
+    {{!-- Same collapsible panel and filter semantics as the Library tab's, minus the Manage tags
+          button: curating the vocabulary from inside a modal-ish picker is a detour, and this
+          window is here to pick tracks. --}}
+    {{#if tagPanelOpen}}
+    <div class="ac-tag-panel" id="ac-picker-tag-panel">
+        {{!-- One block per tag group, the same model and join rule as the Library tab's panel
+              (library.tagFacets): chips inside a block are alternatives, blocks narrow against
+              each other. Only tags a candidate actually carries are listed here. --}}
+        {{#each tagGroups as |block|}}
+        <div class="ac-tag-group" role="group" aria-label="{{block.label}}">
+            <h3 class="ac-tag-group-title">
+                <span>{{block.label}}</span>
+                {{#if block.any}}<span class="ac-tag-group-any">{{localize "AUDIO_CONSOLE.Library.Tags.Any"}}</span>{{/if}}
+            </h3>
+            <div class="ac-tags">
+                {{#each block.chips as |chip|}}
+                <button type="button" class="ac-tag{{#if chip.active}} active{{/if}}{{#if chip.dead}} dead{{/if}}"
+                        data-action="toggleTag" data-tag="{{chip.tag}}" {{#if chip.dead}}disabled{{/if}}
+                        aria-pressed="{{#if chip.active}}true{{else}}false{{/if}}">
+                    <span inert>{{chip.tag}}</span>
+                </button>
+                {{/each}}
+            </div>
+        </div>
+        {{else}}
+        <span class="ac-tags-empty">{{localize "AUDIO_CONSOLE.Library.Tags.None"}}</span>
+        {{/each}}
+    </div>
+    {{/if}}
+
+    {{!-- No grid/tree ARIA scaffolding: every row is already a native control — a folder is a
+          <button>, a track is a <label> around its own checkbox — so the list needs no roles to be
+          readable or operable, and claiming a grid it has no keyboard model for would be worse
+          than claiming nothing. --}}
+    <div class="ac-picker-table" data-picker-table>
+        <div class="ac-picker-scroll" data-picker-scroll>
+            <div class="ac-picker-rows" data-picker-rows></div>
+        </div>
+        <p class="ac-picker-empty" data-picker-empty></p>
+    </div>
+
+    <footer class="ac-section-footer">
+        <span class="ac-status" data-picker-status role="status"></span>
+    </footer>
+</section>

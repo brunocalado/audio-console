@@ -1,0 +1,86 @@
+{{!-- The transport bar renders empty and is filled by console-base.js's updateTransport(). It is
+      never re-rendered: playback state arrives twice a second and through the playback-change
+      channel, and a full render would rebuild the library grid every time. Every element the
+      base writes to is found by its data-transport-* attribute, which is the contract compact
+      mode will honour with a different layout. --}}
+<footer class="ac-transport" data-transport>
+
+    <div class="ac-transport-controls">
+        <button type="button" class="ac-transport-button" data-action="transportPrevious"
+                data-transport-previous data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Previous"}}"
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Previous"}}" disabled>
+            <i class="fa-solid fa-backward-step" inert></i>
+        </button>
+        <button type="button" class="ac-transport-button ac-transport-primary" data-action="transportToggle"
+                data-transport-toggle data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Play"}}"
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Play"}}" disabled>
+            <i class="fa-solid fa-play" data-transport-toggle-icon inert></i>
+        </button>
+        <button type="button" class="ac-transport-button" data-action="transportNext"
+                data-transport-next data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Next"}}"
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Next"}}" disabled>
+            <i class="fa-solid fa-forward-step" inert></i>
+        </button>
+        <button type="button" class="ac-transport-button" data-action="transportStop"
+                data-transport-stop data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Stop"}}"
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Stop"}}" disabled>
+            <i class="fa-solid fa-stop" inert></i>
+        </button>
+        {{!-- Repeat the current track. It writes the track's own PlaylistSound#repeat, so it stays set
+              on that track until someone turns it off, and the next play of it loops too. --}}
+        <button type="button" class="ac-transport-button ac-transport-repeat" data-action="transportRepeat"
+                data-transport-repeat data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Repeat"}}"
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Repeat"}}" aria-pressed="false" disabled>
+            <i class="fa-solid fa-repeat" inert></i>
+        </button>
+    </div>
+
+    {{!-- Hairlines, not gaps: the bar holds four groups that do unrelated jobs — the controls, what
+          is playing, the readouts, the interlock — and spacing alone was leaving them as one drift
+          of loose widgets. aria-hidden because they carry no meaning a screen reader needs; the
+          groups are already separate elements to it. --}}
+    <span class="ac-sep" aria-hidden="true"></span>
+
+    <div class="ac-transport-now">
+        {{!-- The empty `title` is an opt-in, not an oversight: console-base.js only keeps a hover
+              title current on an element that already declares one, which is what lets compact
+              mode stay silent on hover while this bar still shows a truncated name in full. --}}
+        <span class="ac-transport-title" data-transport-title title="">{{localize "AUDIO_CONSOLE.Transport.Idle"}}</span>
+        <span class="ac-transport-subtitle" data-transport-subtitle></span>
+        {{!-- Seekable: click or drag the handle to move the playhead. There is no seek API in
+              Foundry, but there did not need to be one — a broadcast seek is the pausedTime +
+              playSound pair pause/resume already uses (audio/playback.js seekEntry), so every
+              client re-syncs through the same document propagation as any other playback change
+              rather than through anything hand-rolled. role="slider" rather than "progressbar":
+              it is now an input, and a keyboard user gets the same arrow/Home/End handling any
+              other slider has (console-base.js #onProgressKeydown). --}}
+        <div class="ac-progress" role="slider" tabindex="0" data-transport-progress
+             aria-label="{{localize "AUDIO_CONSOLE.Transport.Seek"}}"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-disabled="true">
+            <div class="ac-progress-fill" data-transport-fill></div>
+            <div class="ac-progress-thumb" data-transport-thumb></div>
+        </div>
+    </div>
+
+    <div class="ac-transport-right">
+        <span class="ac-transport-time" data-transport-time>–:–– / –:––</span>
+        <span class="ac-sep" aria-hidden="true"></span>
+        <label class="ac-volume">
+            <i class="fa-solid fa-volume-high" inert></i>
+            <span class="ac-visually-hidden">{{localize "AUDIO_CONSOLE.Transport.Volume"}}</span>
+            {{!-- The slider position is not the gain: AudioHelper.volumeToInput / inputToVolume
+                  map between them so the control feels right to the ear. --}}
+            <input type="range" min="0" max="1" step="0.01" value="0" data-transport-volume
+                   aria-label="{{localize "AUDIO_CONSOLE.Transport.Volume"}}" disabled>
+        </label>
+        <span class="ac-sep" aria-hidden="true"></span>
+        {{!-- The interlock. Permanent, and never colour alone — the icon and the word both
+              change, because a GM who thinks they are auditioning and is actually broadcasting
+              has spoiled a reveal with no undo. --}}
+        <button type="button" class="ac-mode" data-action="transportMode" data-transport-mode
+                aria-pressed="false" data-tooltip="{{localize "AUDIO_CONSOLE.Transport.Mode.PreviewHint"}}">
+            <i class="fa-solid fa-headphones" data-transport-mode-icon inert></i>
+            <span data-transport-mode-label inert>{{localize "AUDIO_CONSOLE.Transport.Mode.Preview"}}</span>
+        </button>
+    </div>
+</footer>

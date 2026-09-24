@@ -1,0 +1,132 @@
+{{!-- The library section renders its chrome only. The table body is populated imperatively by
+      console-normal.js from the in-memory catalogue, because at a few thousand entries most rows
+      must not exist in the DOM at all. --}}
+<section class="tab ac-section ac-library {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    <header class="ac-section-header">
+        <div class="ac-filter-controls">
+            <search class="ac-search">
+                <i class="fa-solid fa-magnifying-glass" inert></i>
+                <input type="search" data-library-search value="{{filters.text}}" autocomplete="off"
+                       placeholder="{{localize "AUDIO_CONSOLE.Library.Search.Placeholder"}}"
+                       aria-label="{{localize "AUDIO_CONSOLE.Library.Search.Label"}}">
+            </search>
+            {{!-- The channel facet is a field's filter, not a tag's, so it sits in the bar with the
+                  search rather than among the vocabulary chips. Two independent toggles, not a
+                  radio: both on is "show everything" (search() in library/index.js). Icon only —
+                  the name is on the tooltip and on a visually-hidden span, which is what keeps the
+                  Clear filters button from costing this row a second line. --}}
+            <div class="ac-channel-filter" role="group" aria-label="{{localize "AUDIO_CONSOLE.Library.Channel.Filter"}}">
+                {{#each channels as |chip|}}
+                <button type="button" class="ac-channel-filter-option{{#if chip.active}} active{{/if}}"
+                        data-action="toggleChannel" data-channel="{{chip.value}}"
+                        data-tooltip="{{localize chip.label}}"
+                        aria-pressed="{{#if chip.active}}true{{else}}false{{/if}}">
+                    <i class="fa-solid {{chip.icon}}" inert></i>
+                    <span class="ac-visually-hidden" inert>{{localize chip.label}}</span>
+                </button>
+                {{/each}}
+            </div>
+            <button type="button" class="ac-button ac-button-quiet ac-tag-toggle{{#if tagPanelOpen}} active{{/if}}"
+                    data-action="toggleTagPanel" aria-expanded="{{#if tagPanelOpen}}true{{else}}false{{/if}}"
+                    aria-controls="ac-tag-panel">
+                <i class="fa-solid fa-tags" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Tags.Toggle"}}</span>
+                {{#if filters.tagCount}}
+                <span class="ac-tag-toggle-count" inert>{{filters.tagCount}}</span>
+                {{/if}}
+            </button>
+            {{#if filters.hasAny}}
+            <button type="button" class="ac-button ac-button-quiet" data-action="clearFilters">
+                <i class="fa-solid fa-filter-circle-xmark" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Tags.Clear"}}</span>
+            </button>
+            {{/if}}
+        </div>
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="addFiles">
+                <i class="fa-solid fa-file-circle-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Actions.Add"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="scanFolder">
+                <i class="fa-solid fa-folder-open" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Actions.ScanFolder"}}</span>
+            </button>
+        </div>
+    </header>
+
+    {{!-- A collapsible panel rather than an always-visible strip: with a few dozen tags in the
+          vocabulary a single scrolling row stops being scannable, so browsing them is now an
+          explicit action (open the panel) instead of permanent header real estate. Chips wrap
+          here instead of scrolling sideways. No search field of its own — the name/path search
+          above already matches tags too, so finding one to type is the redundant path; finding
+          one to click is what this panel is for. --}}
+    {{#if tagPanelOpen}}
+    <div class="ac-tag-panel" id="ac-tag-panel">
+        {{!-- Tags only. The channel filter used to sit in here wearing a chip, which is exactly
+              what made a routing field read as vocabulary; it lives in the header now. --}}
+        <button type="button" class="ac-manage-tags" data-action="manageTags">
+            <i class="fa-solid fa-pen-to-square" inert></i>
+            <span inert>{{localize "AUDIO_CONSOLE.TagManager.Open"}}</span>
+        </button>
+        {{!-- One block per group. Within a block the chips are alternatives (library.search ORs
+              them); between blocks they narrow. The "(any)" on the heading is the whole legend for
+              that rule — it is what explains why the second click in a block grew the table.
+
+              Curating the vocabulary lives in its own window, reached from the button above: this
+              panel is where a GM already is when they notice a tag is misspelled, redundant, or in
+              the wrong group, but doing the rename inline would put "retag this one track" and
+              "rename this on 200 tracks" within a pixel of each other. It is floated so the chips
+              flow around it instead of below it — see .ac-manage-tags — and has to come first in
+              source order for the float to reserve space on the first line. --}}
+        {{#each tagGroups as |block|}}
+        <div class="ac-tag-group" role="group"
+             aria-label="{{#if block.label}}{{block.label}}{{else}}{{localize "AUDIO_CONSOLE.Library.Tags.Label"}}{{/if}}">
+            {{#if block.label}}
+            <h3 class="ac-tag-group-title">
+                <span>{{block.label}}</span>
+                {{#if block.any}}<span class="ac-tag-group-any">{{localize "AUDIO_CONSOLE.Library.Tags.Any"}}</span>{{/if}}
+            </h3>
+            {{/if}}
+            <div class="ac-tags">
+                {{#each block.chips as |chip|}}
+                {{!-- A dead chip is one that would filter the table down to nothing. Disabled
+                      rather than hidden: a chip that disappears takes the vocabulary with it. --}}
+                <button type="button" class="ac-tag{{#if chip.active}} active{{/if}}{{#if chip.dead}} dead{{/if}}"
+                        data-action="toggleTag" data-tag="{{chip.tag}}" {{#if chip.dead}}disabled{{/if}}
+                        aria-pressed="{{#if chip.active}}true{{else}}false{{/if}}">
+                    <span inert>{{chip.tag}}</span>
+                </button>
+                {{/each}}
+            </div>
+        </div>
+        {{else}}
+        <span class="ac-tags-empty">{{localize "AUDIO_CONSOLE.Library.Tags.None"}}</span>
+        {{/each}}
+    </div>
+    {{/if}}
+
+    <div class="ac-table" role="grid" aria-rowcount="0" aria-label="{{localize "AUDIO_CONSOLE.Sections.library"}}"
+         data-library-grid>
+        <div class="ac-thead" role="row" aria-rowindex="1">
+            <span class="ac-cell" role="columnheader">{{localize "AUDIO_CONSOLE.Library.Columns.Name"}}</span>
+            {{!-- A column, not a chip in the tags cell: position is what tells a reader that the
+                  channel is a field rather than one more tag — and a named column is what stops
+                  the button under it reading as a stray icon between Name and Tags. The column is
+                  sized to this word rather than to the button. --}}
+            <span class="ac-cell ac-cell-channel" role="columnheader">{{localize "AUDIO_CONSOLE.Library.Channel.Label"}}</span>
+            <span class="ac-cell" role="columnheader">{{localize "AUDIO_CONSOLE.Library.Columns.Tags"}}</span>
+            <span class="ac-cell" role="columnheader">
+                <span class="ac-visually-hidden">{{localize "AUDIO_CONSOLE.Library.Columns.Actions"}}</span>
+            </span>
+        </div>
+        {{!-- role="presentation" on the spacer and the moving window keeps the rows direct
+              children of the rowgroup as far as assistive tech is concerned. --}}
+        <div class="ac-scroll" role="rowgroup" tabindex="0" data-library-scroll>
+            <div class="ac-spacer" role="presentation" data-library-spacer>
+                <div class="ac-rows" role="presentation" data-library-rows></div>
+            </div>
+        </div>
+        <p class="ac-library-empty" data-library-empty>{{localize "AUDIO_CONSOLE.Library.EmptyLibrary"}}</p>
+    </div>
+</section>

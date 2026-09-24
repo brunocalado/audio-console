@@ -1,0 +1,238 @@
+/*!
+ * Audio Console
+ * Copyright (c) 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* The tag manager window, and the tag-picking dialogs that share its vocabulary. Both live outside
+   the console's own element, so neither can sit inside console-normal.css's
+   .audio-console-normal scope — they carry .audio-console for base.css's tokens and their own
+   sibling class from there. */
+
+.audio-console.audio-console-tags {
+
+  .window-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .ac-tags-manager {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .ac-tags-manager-header {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    gap: var(--ac-gap);
+    padding: var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+  }
+
+  .ac-tag-rows {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .ac-tag-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ac-gap);
+    min-height: 34px;
+    padding: 4px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+
+    &:hover {
+      background: var(--ac-surface-2);
+    }
+  }
+
+  .ac-tag-row-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* The group field. Sized to a word like "biome" rather than stretching: the tag's own name is
+     what the eye scans down this list, and a field as wide as the row would make the group read as
+     the row's subject. Quiet until touched, so a column of mostly-blank fields is not a column of
+     boxes. */
+  .ac-tag-row-group {
+    flex: 0 0 auto;
+    width: 92px;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid transparent;
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-2);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+
+    &:hover,
+    &:focus {
+      border-color: var(--ac-border);
+      color: var(--ac-text);
+    }
+  }
+
+  /* A tag no row carries is a real state, not an error — one coined ahead of use, or one whose last
+     track was retagged — so it reads as quiet rather than as a warning, but distinctly enough to
+     be picked out when tidying up. */
+  .ac-tag-row-count {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    font-variant-numeric: tabular-nums;
+
+    &.unused {
+      font-style: italic;
+      opacity: 0.7;
+    }
+  }
+
+  /* The row mid-rename. Marked so the field reads as an edit in progress rather than as a row that
+     happens to contain an input. */
+  .ac-tag-row.editing {
+    background: var(--ac-surface-2);
+  }
+
+  .ac-tag-row-input {
+    flex: 1;
+    min-width: 0;
+    height: 24px;
+    padding: 0 6px;
+    border: 1px solid var(--ac-accent);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-0);
+    color: var(--ac-text);
+    font-size: var(--font-size-13);
+  }
+}
+
+/* --- Shared by the tag manager and the tag dialogs ------------------------------------------ */
+
+/* Both roots get the same rules: the manager is a window, the dialogs are DialogV2 content, and
+   the "add a tag" row and the field wrapper are the same objects in both.
+
+   `.ac-tag-dialog` is a descendant selector, not a second frame class. It marks the tag *tab* of
+   the add and edit dialogs (dialogs.js tagPickerField), which shares a window with an ordinary
+   form on the other tab — the `.form-group` rule below would otherwise restyle that form's rows
+   too. The manager's root above stays a frame class, because there the window is the picker. */
+.audio-console.audio-console-tags,
+.audio-console .ac-tag-dialog {
+
+  /* The tag tab of the add/scan dialogs emits Foundry's .form-group markup, shared with the
+     ordinary form on the other tab; its label is restyled here so both blocks read as one design. */
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    /* Core's .standard-form .form-group centres its children. In a column that shrink-wraps the
+       label to its own text and parks it mid-dialog, so "Type" floated above left-aligned chips —
+       text-align alone could not fix it, because the box being aligned was only as wide as the
+       word. */
+    align-items: stretch;
+
+    & > label {
+      color: var(--ac-text-dim);
+      font-size: var(--font-size-12);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  .ac-tag-add input[type="text"] {
+    min-width: 0;
+    height: var(--input-height);
+    padding: 0 8px;
+    border: 1px solid var(--ac-border);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-2);
+    color: var(--ac-text);
+    font-size: var(--font-size-13);
+  }
+
+  .ac-tag-add {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    & input[type="text"] {
+      flex: 1;
+      min-width: 0;
+      height: var(--input-height);
+      padding: 0 8px;
+      border: 1px solid var(--ac-border);
+      border-radius: var(--ac-radius);
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+      font-size: var(--font-size-13);
+    }
+
+    /* Add and Manage Tags stand next to an input of the same surface, where base.css's
+       surface-2 → surface-3 hover is a shade apart and reads as nothing — and the quiet variant
+       has no hover at all, its transparent background landing after the hover rule at equal
+       specificity. The accent border is what says "this is a button" for both. */
+    & .ac-button:hover {
+      border-color: var(--ac-accent);
+      background: var(--ac-surface-3);
+      color: var(--ac-text);
+    }
+  }
+
+  .ac-empty-hint {
+    padding: var(--ac-gap);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    text-align: center;
+  }
+}
+
+/* --- The dialog frame ------------------------------------------------------------------------ */
+
+/* The frame these dialogs are drawn in — header, body, form rows, footer — moved to
+   styles/dialogs.css the moment it stopped being the tag manager's alone. Nothing here overrides
+   it; the tag-picking dialogs below only add what is theirs. */
+
+/* --- The tag-picking dialogs ----------------------------------------------------------------- */
+
+.audio-console .ac-tag-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  /* The vocabulary, as something to click rather than to retype. Capped and scrollable so a large
+     vocabulary opens a panel inside the window instead of one the height of the screen. */
+  .ac-tag-cloud {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-height: 200px;
+    padding: 8px;
+    overflow-y: auto;
+    border: 1px solid var(--ac-border);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-1);
+  }
+
+  /* The chips themselves are base.css's .ac-tag, unchanged — including `.active`, whose gold fill
+     means "this track carries it" here and "this filter is on" in the console's own panel, because
+     both answer "is this tag active here". They used to be copied into this file, back when .ac-tag
+     lived in console-normal.css and so could not reach a window outside the console. */
+}

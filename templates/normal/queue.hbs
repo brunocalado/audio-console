@@ -1,0 +1,81 @@
+{{!-- Now Playing: the scratch queue that "play to the table" and "add to Now Playing" write into,
+      given a surface of its own. Same list shape as a playlist's entry pane — .ac-entry-list and
+      .ac-entry are shared verbatim, drag-to-reorder included (console-normal.js resolves the
+      container from data-container-id, so both lists use the same handlers). What differs is that
+      nothing here is created by hand: the list is whatever the library has already sent to the
+      table, so there is no container list beside it and nothing to select. --}}
+<section class="tab ac-section ac-queue {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    <header class="ac-section-header">
+        {{#if queue}}
+        <div class="ac-section-actions">
+            {{#if queue.playing}}
+            <button type="button" class="ac-button" data-action="stopQueue">
+                <i class="fa-solid fa-stop" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Queue.Actions.Stop"}}</span>
+            </button>
+            {{else}}
+            <button type="button" class="ac-button" data-action="playQueue">
+                <i class="fa-solid fa-play" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Queue.Actions.Play"}}</span>
+            </button>
+            {{/if}}
+            <button type="button" class="ac-button ac-button-quiet" data-action="clearQueue"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Queue.ClearHint"}}">
+                <i class="fa-solid fa-trash" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Queue.Actions.Clear"}}</span>
+            </button>
+        </div>
+        <span class="ac-status">{{localize "AUDIO_CONSOLE.Queue.Count" count=queue.count}}</span>
+        {{/if}}
+    </header>
+
+    <div class="ac-queue-body">
+        {{#if queue}}
+        {{!-- data-queue-list is what console-normal.js #paintQueueState finds to keep the play/
+              pause state in step without a render — playing/pausedTime updates are routed away
+              from the render path on purpose (data/sync.js). --}}
+        <ul class="ac-entry-list" data-entry-list data-queue-list data-container-id="{{queue.id}}"
+            aria-label="{{localize "AUDIO_CONSOLE.Queue.ListLabel"}}">
+            {{#each queue.entries as |entry|}}
+            <li class="ac-entry{{#if entry.playing}} playing{{/if}}{{#if entry.paused}} paused{{/if}}"
+                draggable="true" data-sound-id="{{entry.id}}">
+                <i class="fa-solid fa-grip-vertical ac-entry-handle" inert
+                   data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.DragHint"}}"></i>
+                {{!-- One button, two meanings, so the icon and the label move together — the same
+                      rule the transport's own play/pause follows. --}}
+                <button type="button" class="ac-row-action" data-action="playQueueEntry" data-sound-id="{{entry.id}}"
+                        aria-label="{{#if entry.playing}}{{localize "AUDIO_CONSOLE.Transport.Pause"}}{{else}}{{localize "AUDIO_CONSOLE.Queue.Actions.PlayEntry"}}{{/if}}"
+                        data-tooltip="{{#if entry.playing}}{{localize "AUDIO_CONSOLE.Transport.Pause"}}{{else}}{{localize "AUDIO_CONSOLE.Queue.Actions.PlayEntry"}}{{/if}}">
+                    <i class="fa-solid {{#if entry.playing}}fa-pause{{else}}fa-play{{/if}}" inert></i>
+                </button>
+                <span class="ac-entry-name" title="{{entry.name}}">{{entry.name}}</span>
+                {{#if entry.paused}}
+                <span class="ac-entry-state">{{localize "AUDIO_CONSOLE.Queue.Paused"}}</span>
+                {{/if}}
+                <div class="ac-entry-volume">
+                    <i class="fa-solid fa-volume-low" inert></i>
+                    {{!-- Same AudioHelper mapping as the ambience layer slider: the position is
+                          not the gain. --}}
+                    <input type="range" min="0" max="1" step="0.01" value="{{entry.volumeInput}}"
+                           data-entry-volume data-sound-id="{{entry.id}}"
+                           aria-label="{{localize "AUDIO_CONSOLE.Containers.EntryVolume"}}: {{entry.name}}"
+                           aria-valuetext="{{entry.volumeLabel}}">
+                </div>
+                <button type="button" class="ac-row-action" data-action="removeQueueEntry" data-sound-id="{{entry.id}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Queue.Actions.RemoveEntry"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Queue.Actions.RemoveEntry"}}">
+                    <i class="fa-solid fa-xmark" inert></i>
+                </button>
+            </li>
+            {{else}}
+            <li class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Queue.Empty"}}</li>
+            {{/each}}
+        </ul>
+        {{else}}
+        {{!-- Only reachable if the queue Playlist was deleted from the native sidebar after
+              bootstrap ran; it comes back on the next world load. --}}
+        <p class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Queue.Missing"}}</p>
+        {{/if}}
+    </div>
+</section>

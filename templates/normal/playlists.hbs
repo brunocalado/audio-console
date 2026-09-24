@@ -1,0 +1,159 @@
+{{!-- Left: the container list. Right: the selected container's entries, drag to reorder. Tens of
+      items, not thousands, so ordinary Handlebars — no virtual window here. --}}
+<section class="tab ac-section ac-playlists {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    {{!-- A popout has no section header at all: Play/Stop of the whole playlist moves to the
+          window's title bar (console-normal.js _renderFrame), and everything else here manages
+          the playlist, which is the full console's job. --}}
+    {{#unless popout}}
+    <header class="ac-section-header">
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="createContainer" data-section="playlists">
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Playlists.Actions.Create"}}</span>
+            </button>
+        </div>
+        {{!-- Lives in the section header rather than the detail pane below: this row spans the
+              full section width regardless of which container is selected, so the selected
+              container's own controls share it with "New playlist" instead of opening a second,
+              mostly-empty row underneath. --}}
+        {{#if selectedContainer}}
+        <div class="ac-container-detail-controls">
+            {{!-- Both rendered, one hidden: a start or a stop is a playback change and never
+                  re-renders, so console-normal.js #paintContainerState swaps them in place. --}}
+            <button type="button" class="ac-button" data-action="stopContainer" data-section="playlists"
+                    data-playback-toggle="stop"{{#unless selectedContainer.playing}} hidden{{/unless}}>
+                <i class="fa-solid fa-stop" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Playlists.Actions.Stop"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="playContainer" data-section="playlists"
+                    data-playback-toggle="play"{{#if selectedContainer.playing}} hidden{{/if}}>
+                <i class="fa-solid fa-play" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Playlists.Actions.Play"}}</span>
+            </button>
+            {{!-- Both faces of this two-state button, so it can wear the new one at the click
+                  instead of a server round trip later (console-normal.js paintModeButton). They
+                  live here rather than in the JS so the icon names and the localised words stay in
+                  the template with every other string.
+
+                  Each data-icon-* is the complete class attribute the icon should carry, and the
+                  <i> below is written as the same text: whichever face is showing, its class is
+                  character-for-character one of the two above it. Give the icon another class and
+                  it goes in all three places, and the JS still needs to know nothing. --}}
+            <button type="button" class="ac-button" data-action="togglePlaylistMode"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.ModeHint"}}"
+                    aria-pressed="{{#if selectedContainer.shuffle}}true{{else}}false{{/if}}"
+                    data-icon-on="fa-solid fa-shuffle"
+                    data-icon-off="fa-solid fa-arrow-right-long"
+                    data-label-on="{{localize "AUDIO_CONSOLE.Playlists.Mode.Shuffle"}}"
+                    data-label-off="{{localize "AUDIO_CONSOLE.Playlists.Mode.Sequential"}}">
+                <i class="{{#if selectedContainer.shuffle}}fa-solid fa-shuffle{{else}}fa-solid fa-arrow-right-long{{/if}}" inert></i>
+                <span inert>{{localize selectedContainer.modeLabel}}</span>
+            </button>
+            <label class="ac-fade-field">
+                <span inert>{{localize "AUDIO_CONSOLE.Playlists.FadeLabel"}}</span>
+                <input type="number" min="0" step="100" data-playlist-fade data-section="playlists" value="{{selectedContainer.fade}}">
+            </label>
+            {{!-- The Library tab's Add, doing the same thing plus one: the file is registered in
+                  the catalogue and dropped into this playlist. "Add from Library" beside it is the
+                  bulk path for files that are already catalogued. --}}
+            <button type="button" class="ac-button" data-action="addFileToContainer" data-section="playlists">
+                <i class="fa-solid fa-file-circle-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Actions.Add"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="addFromLibrary" data-section="playlists">
+                <i class="fa-solid fa-book" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Containers.AddFromLibrary"}}</span>
+            </button>
+            {{!-- Acts on whichever container is selected, like Rename and Delete beside it — the
+                  card list carries no per-row heart, so pinning is one deliberate act on the thing
+                  already open rather than a button repeated down the list. --}}
+            <button type="button" class="ac-icon-button ac-favorite-toggle{{#if selectedContainer.favorite}} active{{/if}}"
+                    data-action="toggleFavorite" data-section="playlists"
+                    aria-pressed="{{#if selectedContainer.favorite}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}">
+                <i class="{{#if selectedContainer.favorite}}fa-solid{{else}}fa-regular{{/if}} fa-heart" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="popOut" data-section="playlists"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}">
+                <i class="fa-solid fa-up-right-from-square" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="deleteContainer" data-section="playlists"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}">
+                <i class="fa-solid fa-trash" inert></i>
+            </button>
+        </div>
+        {{/if}}
+    </header>
+    {{/unless}}
+
+    <div class="ac-playlists-body">
+        {{#unless popout}}
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Playlists.ListLabel"}}">
+            {{#each containers as |container|}}
+            {{!-- Rename lives here, next to the name, rather than in the detail pane on the
+                  right: the name is already shown per-card, so a second copy of it up there (with
+                  its own pencil) was a second header repeating what the selection already told the
+                  GM, at the cost of a row of vertical space. Only the active card gets one — rename
+                  targets "whichever container is selected" (#onRenameContainer), so a pencil on an
+                  unselected card would imply an action it can't yet perform.
+
+                  Editing happens in the card itself, the same way the tag manager renames a tag:
+                  the field and its confirm/cancel pair replace the card outright, so the row never
+                  offers "rename" and "confirm rename" at once. --}}
+            <div class="ac-container-card-wrap{{#if container.active}} active{{/if}}{{#if container.editing}} editing{{/if}}" role="listitem">
+                {{#if container.editing}}
+                <input type="text" class="ac-container-rename-input" data-rename-input value="{{container.draft}}"
+                       autocomplete="off" aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                <button type="button" class="ac-row-action" data-action="commitRenameContainer" data-section="playlists"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}">
+                    <i class="fa-solid fa-check" inert></i>
+                </button>
+                <button type="button" class="ac-row-action" data-action="cancelRenameContainer"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}">
+                    <i class="fa-solid fa-xmark" inert></i>
+                </button>
+                {{else}}
+                <button type="button" class="ac-container-card{{#if container.active}} active{{/if}}"
+                        data-action="selectContainer" data-section="playlists" data-container-id="{{container.id}}">
+                    <span class="ac-container-name" title="{{container.name}}">{{container.name}}</span>
+                    {{#if container.playing}}<i class="fa-solid fa-volume-high ac-container-playing" inert></i>{{/if}}
+                </button>
+                {{#if container.active}}
+                <button type="button" class="ac-icon-button ac-container-rename" data-action="renameContainer" data-section="playlists"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                    <i class="fa-solid fa-pen" inert></i>
+                </button>
+                {{/if}}
+                {{/if}}
+            </div>
+            {{else}}
+            <p class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Playlists.NoneYet"}}</p>
+            {{/each}}
+        </div>
+        {{/unless}}
+
+        <div class="ac-container-detail">
+            {{#if selectedContainer}}
+            {{!-- The rows are populated imperatively by console-normal.js, not by an {{#each}}:
+                  a playlist built from an imported library runs to thousands of tracks, and at that
+                  size the list must not exist in the DOM. Same three-element shape as the library
+                  table — scroll, spacer, window — driven by virtual-list.js. --}}
+            <div class="ac-entry-scroll" data-entry-scroll>
+                <div class="ac-entry-spacer" data-entry-spacer>
+                    <ul class="ac-entry-list" data-entry-list data-container-id="{{selectedContainer.id}}"></ul>
+                </div>
+            </div>
+            <p class="ac-empty-hint ac-entry-empty" data-entry-empty>{{localize "AUDIO_CONSOLE.Playlists.EmptyEntries"}}</p>
+            {{else}}
+            <p class="ac-empty-hint ac-container-detail-empty">{{localize "AUDIO_CONSOLE.Playlists.SelectHint"}}</p>
+            {{/if}}
+        </div>
+    </div>
+</section>

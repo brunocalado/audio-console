@@ -1,0 +1,42 @@
+{{!-- Left rail: the five fixed sections, then whatever the GM has pinned.
+
+      The nav keeps the `tabs` class and the tab buttons keep `data-group`, because that pair is
+      what ApplicationV2#changeTab looks for — it queries `.tabs [data-group="…"]` as a DESCENDANT
+      selector (verified against v14.367's own source), so nesting the nav inside this wrapper is
+      safe. The favourites below carry no `data-group` on purpose: the same query toggles `.active`
+      on everything it matches, and a favourite is not a tab. --}}
+<div class="ac-rail">
+
+    {{!-- ApplicationV2's own tab handler reads event.target directly, so every child of a tab
+          control is marked inert — otherwise a click that lands on the icon or the label is a
+          click on an element with no data-tab, and the section never changes. --}}
+    <nav class="ac-rail-tabs tabs" data-group="sections" aria-label="{{localize "AUDIO_CONSOLE.Nav.Label"}}">
+        {{#each tabs as |tab|}}
+        <button type="button" class="ac-rail-item {{tab.cssClass}}" data-action="tab"
+                data-group="{{tab.group}}" data-tab="{{tab.id}}">
+            <i class="{{tab.icon}}" inert></i>
+            <span inert>{{localize tab.label}}</span>
+        </button>
+        {{/each}}
+    </nav>
+
+    {{!-- Hidden entirely when nothing is pinned: a rule and a heading over an empty list is a
+          promise the rail cannot keep yet. The heading appears with the first favourite. --}}
+    {{#if favorites.length}}
+    <div class="ac-rail-favorites">
+        <h3 class="ac-rail-heading">{{localize "AUDIO_CONSOLE.Favorites.Heading"}}</h3>
+        <div class="ac-rail-favorites-list" role="list">
+            {{#each favorites as |favorite|}}
+            {{!-- No data-tooltip. A long name is truncated here (.ac-rail-item span), so the full
+                  text is deliberately not offered on hover: the rail stays quiet,
+                  and the section this jumps to shows the whole name anyway. --}}
+            <button type="button" class="ac-rail-item ac-rail-favorite" role="listitem"
+                    data-action="openFavorite" data-container-id="{{favorite.id}}">
+                <i class="{{favorite.icon}}" inert></i>
+                <span inert>{{favorite.name}}</span>
+            </button>
+            {{/each}}
+        </div>
+    </div>
+    {{/if}}
+</div>

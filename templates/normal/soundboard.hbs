@@ -1,0 +1,126 @@
+{{!-- Left: the soundboard containers (like the Playlists section). Right: the selected board's
+      pad grid — pads are aimed at, not read, so a grid rather than a list. Tens of pads, not
+      thousands, so ordinary Handlebars — no virtual window here. --}}
+<section class="tab ac-section ac-soundboard {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    {{!-- A popout is the pad grid and nothing else: every pad is its own fire button, and the
+          header's remaining controls all manage the board, which is the full console's job. --}}
+    {{#unless popout}}
+    <header class="ac-section-header">
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="createContainer" data-section="soundboards">
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Soundboard.Actions.Create"}}</span>
+            </button>
+        </div>
+        {{!-- Shares the header row with "New soundboard" rather than opening a second row in the
+              detail pane below — same layout as Playlists. --}}
+        {{#if selectedSoundboard}}
+        <div class="ac-container-detail-controls">
+            <button type="button" class="ac-button" data-action="stopContainer" data-section="soundboards">
+                <i class="fa-solid fa-stop" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Soundboard.Actions.StopAll"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="addFileToContainer" data-section="soundboards">
+                <i class="fa-solid fa-file-circle-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Actions.Add"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="addFromLibrary" data-section="soundboards">
+                <i class="fa-solid fa-book" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Containers.AddFromLibrary"}}</span>
+            </button>
+            {{!-- Acts on whichever container is selected, like Rename and Delete beside it — the
+                  card list carries no per-row heart, so pinning is one deliberate act on the thing
+                  already open rather than a button repeated down the list. --}}
+            {{!-- Ducking: while a pad of this board plays, every client lowers its music channel
+                  (audio/ducking.js). A toggle beside the other board-level controls, painted at the
+                  click and confirmed by the flag write. --}}
+            <button type="button" class="ac-icon-button ac-duck-toggle{{#if selectedSoundboard.duck}} active{{/if}}"
+                    data-action="toggleDuck" data-section="soundboards"
+                    aria-pressed="{{#if selectedSoundboard.duck}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Soundboard.Actions.DuckHint"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Soundboard.Actions.Duck"}}">
+                <i class="fa-solid fa-arrow-down-short-wide" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button ac-favorite-toggle{{#if selectedSoundboard.favorite}} active{{/if}}"
+                    data-action="toggleFavorite" data-section="soundboards"
+                    aria-pressed="{{#if selectedSoundboard.favorite}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}">
+                <i class="{{#if selectedSoundboard.favorite}}fa-solid{{else}}fa-regular{{/if}} fa-heart" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="popOut" data-section="soundboards"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}">
+                <i class="fa-solid fa-up-right-from-square" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="deleteContainer" data-section="soundboards"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}">
+                <i class="fa-solid fa-trash" inert></i>
+            </button>
+        </div>
+        {{/if}}
+    </header>
+    {{/unless}}
+
+    <div class="ac-soundboard-body">
+        {{#unless popout}}
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.ListLabel"}}">
+            {{#each soundboards as |board|}}
+            {{!-- Same single-line card + inline rename as Playlists: the pad count read as noise
+                  once the card was selectable by name alone, and rename only targets "whichever
+                  board is selected" (#onRenameContainer), so only the active card gets a pencil. --}}
+            <div class="ac-container-card-wrap{{#if board.active}} active{{/if}}{{#if board.editing}} editing{{/if}}" role="listitem">
+                {{#if board.editing}}
+                <input type="text" class="ac-container-rename-input" data-rename-input value="{{board.draft}}"
+                       autocomplete="off" aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                <button type="button" class="ac-row-action" data-action="commitRenameContainer" data-section="soundboards"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}">
+                    <i class="fa-solid fa-check" inert></i>
+                </button>
+                <button type="button" class="ac-row-action" data-action="cancelRenameContainer"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}">
+                    <i class="fa-solid fa-xmark" inert></i>
+                </button>
+                {{else}}
+                <button type="button" class="ac-container-card{{#if board.active}} active{{/if}}"
+                        data-action="selectContainer" data-section="soundboards" data-container-id="{{board.id}}">
+                    <span class="ac-container-name" title="{{board.name}}">{{board.name}}</span>
+                </button>
+                {{#if board.active}}
+                <button type="button" class="ac-icon-button ac-container-rename" data-action="renameContainer" data-section="soundboards"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                    <i class="fa-solid fa-pen" inert></i>
+                </button>
+                {{/if}}
+                {{/if}}
+            </div>
+            {{else}}
+            <p class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Soundboard.NoneYet"}}</p>
+            {{/each}}
+        </div>
+        {{/unless}}
+
+        <div class="ac-soundboard-detail">
+            {{#if selectedSoundboard}}
+            {{!-- The pads are painted imperatively by console-normal.js, not by an {{#each}}: a
+                  board built from an imported library runs to thousands of tiles, and a 1532-pad
+                  grid was 21,477 elements. Same three-element shape as the library table — scroll,
+                  spacer, window — driven by virtual-list.js, except that here the window is the
+                  grid itself and the pitch is a tile plus its gap. --}}
+            <div class="ac-pad-scroll" data-pad-scroll>
+                <div class="ac-pad-spacer" data-pad-spacer>
+                    <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}" data-pad-grid></div>
+                </div>
+            </div>
+            <p class="ac-empty-hint ac-pad-empty" data-pad-empty>{{localize "AUDIO_CONSOLE.Soundboard.EmptyPads"}}</p>
+            {{else}}
+            <p class="ac-empty-hint ac-container-detail-empty">{{localize "AUDIO_CONSOLE.Soundboard.SelectHint"}}</p>
+            {{/if}}
+        </div>
+    </div>
+</section>

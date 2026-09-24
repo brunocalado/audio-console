@@ -1,0 +1,546 @@
+{
+  "AUDIO_CONSOLE": {
+    "Window": {
+      "Title": "Audio Console"
+    },
+    "Controls": {
+      "Open": "Audio Console",
+      "Compact": "Compact Mode",
+      "GMOnly": "Audio Console is available to the Game Master only."
+    },
+    "Nav": {
+      "Label": "Audio Console sections"
+    },
+    "Favorites": {
+      "Heading": "Favorites",
+      "Toggle": "Pin to Favorites"
+    },
+    "Sections": {
+      "library": "Library",
+      "playlists": "Playlists",
+      "soundboard": "Soundboards",
+      "ambience": "Ambiences",
+      "queue": "Now Playing",
+      "automation": "Automation"
+    },
+    "Library": {
+      "Channel": {
+        "Label": "Channel",
+        "Hint": "Which volume slider governs this sound.",
+        "Filter": "Filter by Channel"
+      },
+      "Columns": {
+        "Name": "Name",
+        "Tags": "Tags",
+        "Actions": "Actions"
+      },
+      "Search": {
+        "Label": "Search the Library",
+        "Placeholder": "Search name, path or tag…"
+      },
+      "Tags": {
+        "Label": "Filter by Tag",
+        "Any": "(any)",
+        "Ungrouped": "Other",
+        "Toggle": "Tags",
+        "None": "No tags yet",
+        "Clear": "Clear Filters"
+      },
+      "Actions": {
+        "Add": "Add",
+        "ScanFolder": "Scan Folder",
+        "Preview": "Preview (only you hear this)",
+        "PlayToTable": "Play to the Table",
+        "AddToQueue": "Add to Now Playing",
+        "Drag": "Drag onto the Scene for an Ambient Sound, or onto the Hotbar for a Macro",
+        "Macro": "Save as Macro",
+        "MacroHint": "Create a macro for this track in the world, without using a hotbar slot.",
+        "Edit": "Edit Audio",
+        "Remove": "Remove from Catalogue",
+        "RemoveFolder": "Remove Folder from Catalogue",
+        "CollapseSubfolders": "Collapse Subfolders",
+        "ExpandSubfolders": "Expand Subfolders"
+      },
+      "Notify": {
+        "Added": "{count} added to the library.",
+        "AlreadyPresent": "That file is already in the library.",
+        "PathTaken": "Another library entry already points at \"{path}\". Nothing was changed.",
+        "PathInvalid": "That is not a usable file path. Nothing was changed.",
+        "Repointed": "\"{name}\" now points at {path}.",
+        "NothingNew": "No new audio files there — everything found is already in the library.",
+        "SaveFailed": "Could not save the library catalogue. Your latest changes are only in memory — try again, or use \"Export a Copy\" in Settings → Library Maintenance to keep what you have.",
+        "Unreachable": "Could not reach the data folder — check your connection to this Foundry server. The library will start empty for this session; nothing has been lost, but changes won't be saved until it's reachable again.",
+        "ScanFailed": "Could not read \"{dir}\" — it may have been moved, renamed, or is on a path this server can no longer reach."
+      },
+      "EmptyLibrary": "The library is empty. Add files or scan a folder to get started.",
+      "Missing": {
+        "Badge": "Missing",
+        "Hint": "This file could not be found at its saved path. It stays in the catalogue — it may just be on a different machine, or the file has moved."
+      },
+      "Maintenance": {
+        "Cancel": "Cancel",
+        "Close": "Close",
+        "ExportFirstTitle": "Export a Copy First?",
+        "ExportFirstHint": "The copy downloads through your browser, outside the data folder — the only place a mistake here cannot reach.",
+        "ExportFirstExport": "Export a Copy, Then Continue",
+        "ExportFirstContinue": "Continue Without Exporting",
+        "ExportFirstConsolidate": "Consolidating copies files and repoints the catalogue. Export a copy of the catalogue first?",
+        "ExportFirstReplace": "Replacing the catalogue drops every row that is not in the imported file. Export a copy first?",
+        "ImportTitle": "Import a Catalogue",
+        "ImportIntro": "Pick a library.json exported from another Foundry installation.",
+        "ImportFileLabel": "Catalogue File",
+        "ImportMerge": "Merge",
+        "ImportMergeHint": "New paths are added. A track already here keeps its name, kind and volume, and gains the imported tags.",
+        "ImportReplace": "Replace",
+        "ImportReplaceHint": "The catalogue becomes the file exactly. Everything not in it is dropped, tags included.",
+        "ReplaceTitle": "Replace the Catalogue",
+        "ReplaceQuestion": "Replace the {current} tracks in the catalogue with the {incoming} in this file?",
+        "ReplaceRemoved": "{count} tracks are not in the file and will be dropped, with their tags.",
+        "ReplaceSubmit": "Replace",
+        "Notify": {
+          "Exported": "A copy of the catalogue was downloaded.",
+          "ImportInvalid": "That file is not an Audio Console catalogue.",
+          "Merged": "Merged: {added} added, {merged} already in the library.",
+          "Replaced": "The catalogue is now {count} tracks."
+        }
+      },
+      "Consolidate": {
+        "Title": "Consolidate into the Data Folder",
+        "Intro": "Copy {count} files into {dir}, renamed to lower case with hyphens. Total size: {size}.",
+        "Unmeasured": "{count} of them could not be measured and are not in that total.",
+        "OriginalsNotice": "The originals stay where they are. This module cannot delete them — Foundry's file API has no delete, move or rename — so removing them is done in your operating system's file manager, not in Foundry.",
+        "DiskNotice": "This duplicates the disk space your library uses, and nothing in Foundry can undo it.",
+        "PlayingNotice": "Anything playing right now keeps playing from its old path until it is restarted.",
+        "Renames": "Every File That Would Be Copied",
+        "Collisions": "Names That Collided ({count})",
+        "CollisionRow": "\"{name}\" normalises to {wanted}, which is taken — saved as {filename}",
+        "Skipped": "Skipped ({count})",
+        "SkipAlready": "already in the data folder",
+        "SkipRemote": "a remote URL — it cannot be copied",
+        "Submit": "Copy {count} Files",
+        "ProgressTitle": "Consolidating",
+        "ProgressCount": "{done} of {total}",
+        "CancelRun": "Cancel",
+        "ReportTitle": "Consolidation Report",
+        "ReportCancelled": "Cancelled. Run it again to carry on from where it stopped — what was copied is already repointed.",
+        "ReportCopied": "Copied: {count}",
+        "ReportFailed": "Failed: {count}",
+        "ReportSkipped": "Skipped: {count}",
+        "ReportRepointed": "Repointed: {entries} library rows, {sounds} playlist tracks",
+        "ReportWritten": "Full report written to {path}",
+        "ReportNotWritten": "The report file could not be written. The copies above still happened.",
+        "Notify": {
+          "EmptyLibrary": "The library is empty — there is nothing to consolidate.",
+          "Planning": "Working out what would be copied…",
+          "NothingToDo": "Nothing to consolidate: all {count} library files are already in the data folder, or are remote URLs."
+        }
+      },
+      "Dialogs": {
+        "NameLabel": "Name",
+        "PathLabel": "File",
+        "PathBrowse": "Browse",
+        "PathHint": "The file this entry points at. Changing it repoints the catalogue only — tracks already in a playlist keep the path they were added with.",
+        "DetailsTab": "Details",
+        "TagsLabel": "Tags",
+        "AddTitle": "Add to Library",
+        "AddSubmit": "Add",
+        "EditTitle": "Edit Audio",
+        "EditSubmit": "Save",
+        "RemoveTitle": "Remove from Catalogue",
+        "RemoveQuestion": "Remove \"{name}\" from the library catalogue?",
+        "RemoveNotice": "This removes the name and tags from the catalogue only. The file stays on disk, and copies already in a playlist keep playing.",
+        "RemoveFolderTitle": "Remove Folder from Catalogue",
+        "RemoveFolderQuestion": "Remove \"{name}\" and everything in it — {count} file(s), subfolders included — from the library catalogue?",
+        "ScanTitle": "Scan Folder",
+        "ScanIntro": "Register every audio file in this folder that the library does not already have.",
+        "RecurseLabel": "Include Subfolders",
+        "ScanSubmit": "Scan",
+        "TagsCloudLabel": "Tags on This Track",
+        "TagsCloudHint": "Between {min} and {max} characters. Lowercased and stripped to letters, digits and hyphens. Tags are shared by the whole library.",
+        "TagsAddLabel": "New Tag",
+        "TagsAddPlaceholder": "Add a tag…",
+        "TagsAddSubmit": "Add"
+      }
+    },
+    "Picker": {
+      "Title": "Add from Library",
+      "SelectAll": "Select All",
+      "ClearSelection": "Clear Selection",
+      "Submit": "Add Selected",
+      "Empty": "Everything in the library is already here.",
+      "NoMatches": "Nothing matches these filters.",
+      "Status": {
+        "Total": "{count} selected of {total}",
+        "Filtered": "{count} selected — showing {shown} of {total}"
+      }
+    },
+    "Containers": {
+      "AddFromLibrary": "Library",
+      "EntryVolume": "Track Volume",
+      "Notify": {
+        "AlreadyThere": "\"{name}\" is already in \"{container}\"."
+      },
+      "ConfirmRename": "Confirm Rename",
+      "CancelRename": "Cancel",
+      "PopOut": "Pop Out"
+    },
+    "Playlists": {
+      "ListLabel": "Playlist Containers",
+      "SelectHint": "Select a playlist to see its tracks.",
+      "NoneYet": "No playlists yet.",
+      "EmptyEntries": "This playlist is empty. Add tracks from the library.",
+      "FadeLabel": "Fade (ms)",
+      "DragHint": "Drag to reorder",
+      "ModeHint": "Toggle between sequential and shuffle playback.",
+      "Mode": {
+        "Sequential": "Sequential",
+        "Shuffle": "Shuffle"
+      },
+      "Actions": {
+        "Create": "New Playlist",
+        "Rename": "Rename",
+        "Delete": "Delete",
+        "Play": "Play",
+        "Stop": "Stop",
+        "AddToLibrary": "Add to Library",
+        "PlayEntry": "Play This Track",
+        "RemoveEntry": "Remove from This Playlist"
+      },
+      "Dialogs": {
+        "NameLabel": "Name",
+        "DefaultName": "Playlist",
+        "CreateTitle": "New Playlist",
+        "CreateSubmit": "Create",
+        "DeleteTitle": "Delete \"{name}\"",
+        "DeleteQuestion": "What should happen to \"{name}\"?",
+        "DeleteRelease": "Remove from Audio Console",
+        "DeleteReleaseHint": "Keeps it and its tracks. It moves out of the module's folder in the Playlists tab and stops being an Audio Console list.",
+        "DeletePermanent": "Delete Permanently",
+        "DeletePermanentHint": "Deletes it, and the track entries inside it, from this world.",
+        "DeleteNotice": "Both options act on Foundry documents only. No audio file is moved, renamed or deleted, and the library keeps every entry.",
+        "DeleteCancel": "Cancel"
+      },
+      "Notify": {
+        "AddedFromLibrary": "{count} added to \"{name}\".",
+        "AddedTo": "\"{name}\" added to \"{container}\".",
+        "NothingToAdd": "Every library track is already in this playlist."
+      }
+    },
+    "Soundboard": {
+      "ListLabel": "Soundboard Containers",
+      "PadGridLabel": "Pads",
+      "SelectHint": "Select a soundboard to see its pads.",
+      "NoneYet": "No soundboards yet.",
+      "EmptyPads": "This soundboard is empty. Add pads from the library.",
+      "Actions": {
+        "Create": "New Soundboard",
+        "StopAll": "Stop All",
+        "Fire": "Play",
+        "Stop": "Stop",
+        "Configure": "Configure Pad",
+        "Drag": "Drag onto Another Pad to Reorder, onto the Scene for an Ambient Sound, or onto the Hotbar for a Macro",
+        "Whisper": "Send to One Player",
+        "Duck": "Duck Music",
+        "DuckHint": "While a pad from this board plays, every client's music channel is lowered, and comes back when the pad ends. Nothing about your levels is changed."
+      },
+      "Notify": {
+        "MacroCreated": "Created the macro \"{name}\" and put it on the hotbar.",
+        "MacroReused": "\"{name}\" already had a macro — put that one on the hotbar.",
+        "MacroFailed": "That pad could not be turned into a macro. See the console for details.",
+        "Whispered": "Sent \"{name}\" to {user}.",
+        "NoWhisperTargets": "Nobody else is connected, so there is no one to send this to.",
+        "MacroSaved": "Created the macro \"{name}\" in the {folder} folder.",
+        "MacroExists": "\"{name}\" already had a macro — nothing new was created."
+      },
+      "Dialogs": {
+        "DefaultName": "Soundboard",
+        "CreateTitle": "New Soundboard",
+        "CreateSubmit": "Create",
+        "ConfigTitle": "Configure \"{name}\"",
+        "ConfigSubmit": "Save",
+        "VolumeLabel": "Volume",
+        "LoopLabel": "Loop",
+        "ColorLabel": "Colour",
+        "IconLabel": "Icon",
+        "IconBrowse": "Browse",
+        "IconClear": "Use the Default Icon",
+        "RandomLegend": "Random Interval",
+        "RandomEnabledLabel": "Fire Automatically",
+        "IntervalLabel": "Interval (seconds)",
+        "IntervalHint": "The centre of the range between fires.",
+        "VarianceLabel": "Variance",
+        "VarianceHint": "0 fires exactly on the interval; 1 ranges from immediate to double the interval.",
+        "WhisperTitle": "Send \"{name}\" to…",
+        "WhisperLabel": "Player",
+        "WhisperHint": "Only the player you choose hears this, and so do you. The rest of the table does not.",
+        "WhisperSubmit": "Send"
+      }
+    },
+    "Ambience": {
+      "ListLabel": "Ambience Containers",
+      "LayerListLabel": "Layers",
+      "SelectHint": "Select an ambience to see its layers.",
+      "NoneYet": "No ambiences yet.",
+      "EmptyLayers": "This ambience is empty. Add layers from the library.",
+      "Actions": {
+        "Create": "New Ambience",
+        "PlayAll": "Play",
+        "StopAll": "Stop All",
+        "Loop": "Loop",
+        "RandomInterval": "Random Interval",
+        "Volume": "Layer Volume",
+        "RemoveLayer": "Remove from This Ambience"
+      },
+      "Dialogs": {
+        "DefaultName": "Ambience",
+        "CreateTitle": "New Ambience",
+        "CreateSubmit": "Create",
+        "RandomTitle": "Random Interval — \"{name}\"",
+        "RandomSubmit": "Save",
+        "RandomEnabledLabel": "Fire Automatically",
+        "RandomEnabledHint": "The layer plays by itself at random intervals instead of looping continuously — the same timing soundboard pads use.",
+        "OnStartLabel": "Also Play When the Ambience Starts",
+        "OnStartHint": "Off, the layer's first play lands somewhere inside its first interval, so the ambience does not open with every timed layer at once."
+      },
+      "OnStartBadge": "Also plays when the ambience starts"
+    },
+    "Queue": {
+      "ListLabel": "Now Playing Queue",
+      "Count": "Queued: {count}",
+      "Empty": "Nothing queued yet. Play a track, or use \"Add to Now Playing\" from the library.",
+      "Missing": "The Now Playing queue is missing. It is recreated the next time this world loads.",
+      "Paused": "Paused",
+      "ClearHint": "Empty the queue. Nothing is removed from the library.",
+      "Actions": {
+        "Play": "Play",
+        "Stop": "Stop",
+        "Clear": "Clear",
+        "PlayEntry": "Play This Track",
+        "RemoveEntry": "Remove from Now Playing"
+      },
+      "Dialogs": {
+        "ClearTitle": "Clear Now Playing",
+        "ClearQuestion": "Remove all {count} tracks from the Now Playing queue?",
+        "ClearNotice": "This empties the queue only. Nothing is removed from the library, and nothing on disk is touched."
+      }
+    },
+    "Automation": {
+      "Armed": "Armed",
+      "Disarmed": "Disarmed",
+      "ArmHint": "While armed, matching rules play to the table on their own. Disarmed, nothing fires and nothing already playing is stopped.",
+      "Count": "{enabled} of {total} enabled",
+      "ListLabel": "Automation Rules",
+      "DragHint": "Drag to reorder. Every matching rule fires; the order is the order they fire in.",
+      "NotDriver": "Another GM is connected and is the one running these rules. The list is shared, so edits here reach them.",
+      "Empty": "No rules yet. Add one to have the table's audio follow the weather, the darkness, the active scene, the clock, or the combat tracker.",
+      "NoTargets": "Build a playlist, soundboard or ambience first — a rule has to have something to play.",
+      "StateOn": "This condition holds right now.",
+      "StateOff": "This condition does not hold right now.",
+      "BrokenHint": "This rule cannot run as written — its target is gone, or is not a kind this action can play. Edit it to pick a new one.",
+      "Missing": "missing",
+      "NoWeather": "No weather",
+      "Actions": {
+        "New": "New Rule",
+        "Edit": "Edit Rule",
+        "Delete": "Delete Rule",
+        "Test": "Test Rule",
+        "TestHint": "Fire this rule now, without waiting for its condition.",
+        "Enable": "Enable Rule",
+        "Disable": "Disable Rule"
+      },
+      "Trigger": {
+        "weather": "Scene weather is",
+        "darkness": "Scene darkness",
+        "scene": "Scene is active",
+        "time": "Time of day is between",
+        "combatStart": "Combat starts",
+        "combatEnd": "Combat ends"
+      },
+      "ActionGroup": {
+        "play": "Play",
+        "stop": "Stop"
+      },
+      "Action": {
+        "playPlaylist": "Play a playlist",
+        "playAmbience": "Play an ambience",
+        "playTrack": "Play one track",
+        "playPad": "Play one pad",
+        "stopPlaylist": "Stop a playlist",
+        "stopSoundboard": "Stop a soundboard",
+        "stopAmbience": "Stop an ambience",
+        "stopAll": "Stop everything"
+      },
+      "Operator": {
+        "atLeast": "is at least",
+        "below": "is below"
+      },
+      "TriggerText": {
+        "Weather": "Weather is {weather}",
+        "DarknessAtLeast": "Darkness is {value} or more",
+        "DarknessBelow": "Darkness is below {value}",
+        "Scene": "Scene “{scene}” is active",
+        "Time": "Time is {from} – {to}",
+        "combatStart": "Combat starts",
+        "combatEnd": "Combat ends"
+      },
+      "ActionText": {
+        "play": "Play “{container}”",
+        "entry": "Play “{sound}” from “{container}”",
+        "stop": "Stop “{container}”",
+        "stopAll": "Stop everything"
+      },
+      "Log": {
+        "Heading": "Recent activity",
+        "Empty": "Nothing has fired yet this session.",
+        "How": {
+          "enter": "entered",
+          "exit": "left",
+          "event": "fired",
+          "test": "tested"
+        },
+        "Outcome": {
+          "missingContainer": "target missing",
+          "missingSound": "track missing",
+          "unknownAction": "unknown action",
+          "wrongKind": "target is the wrong kind"
+        }
+      },
+      "Notify": {
+        "NoTargets": "There is nothing for a rule to play yet. Build a playlist, soundboard or ambience first."
+      },
+      "Dialogs": {
+        "NewTitle": "New Automation Rule",
+        "EditTitle": "Edit Automation Rule",
+        "TriggerLabel": "When",
+        "WeatherLabel": "Weather",
+        "WeatherHint": "The same list the scene's own Weather field offers.",
+        "DarknessLabel": "Darkness",
+        "DarknessHint": "Compared against the active scene's darkness level. Pair two rules with opposite comparisons over the same value to get a day/night handover.",
+        "SceneLabel": "Scene",
+        "SceneHint": "Holds while this scene is the active one, and lets go when another is activated.",
+        "TimeLabel": "Hours",
+        "TimeTo": "to",
+        "TimeHint": "The world clock's hour of day, read through the configured calendar. A window that ends at or before it starts wraps past midnight.",
+        "ActionLabel": "Then",
+        "ContainerLabel": "Target",
+        "SoundLabel": "Track or pad",
+        "CreateSubmit": "Create Rule",
+        "SaveSubmit": "Save Rule",
+        "TargetHint": "Only the containers the chosen action can use — each action names one kind."
+      }
+    },
+    "TagManager": {
+      "Title": "Manage Tags",
+      "Open": "Manage Tags",
+      "AddLabel": "New Tag",
+      "AddPlaceholder": "New tag…",
+      "FilterLabel": "Filter Tags",
+      "FilterPlaceholder": "Filter tags…",
+      "GroupLabel": "Tag Group",
+      "GroupPlaceholder": "Group",
+      "Uses": "Tracks: {count}",
+      "Empty": "No tags yet. Add one above, or tag a track from the library.",
+      "NoMatches": "No tag matches that filter.",
+      "Actions": {
+        "Add": "Add",
+        "Rename": "Rename",
+        "RenameHint": "Rename this tag on every track that carries it",
+        "Delete": "Delete",
+        "DeleteHint": "Delete this tag and remove it from every track",
+        "Cancel": "Cancel"
+      },
+      "Dialogs": {
+        "DeleteTitle": "Delete Tag",
+        "DeleteQuestion": "Delete the tag \"{tag}\" and remove it from {count} tracks?",
+        "DeleteNotice": "This removes the tag only. No track leaves the library, and nothing on disk is touched."
+      },
+      "Notify": {
+        "Created": "\"{tag}\" added.",
+        "Exists": "\"{tag}\" is already in the library.",
+        "Invalid": "That is not a usable tag name — it must be {min}–{max} characters.",
+        "Renamed": "\"{from}\" renamed to \"{to}\" on {entries} tracks.",
+        "Merged": "\"{from}\" merged into \"{to}\" — {entries} tracks updated.",
+        "Deleted": "\"{tag}\" deleted, and removed from {entries} tracks."
+      }
+    },
+    "Compact": {
+      "Expand": "Expand to Normal Mode"
+    },
+    "Transport": {
+      "Play": "Play",
+      "Pause": "Pause",
+      "Previous": "Previous Track",
+      "Next": "Next Track",
+      "Stop": "Stop Everything",
+      "Repeat": "Repeat this track",
+      "RepeatOff": "Stop repeating this track",
+      "Volume": "Volume",
+      "Idle": "Nothing playing",
+      "Mixed": "{count} sounds playing together",
+      "PreviewContext": "Preview — only you hear this",
+      "Mode": {
+        "Preview": "Preview",
+        "PreviewHint": "Only you hear playback. Click to broadcast to the table.",
+        "Broadcast": "LIVE",
+        "BroadcastHint": "Everyone at the table hears playback. Click to go back to preview."
+      },
+      "Notify": {
+        "Queued": "\"{name}\" added to Now Playing.",
+        "PlaybackFailed": "\"{name}\" could not be played — the file may be missing or unreadable."
+      },
+      "Seek": "Playback position — drag to seek"
+    },
+    "Settings": {
+      "DisplayMode": {
+        "Name": "Display Mode",
+        "Hint": "Whether the console opens in normal or compact mode.",
+        "Normal": "Normal",
+        "Compact": "Compact"
+      },
+      "AudioMode": {
+        "Name": "Audio Mode",
+        "Hint": "Whether playback previews locally or broadcasts to the table.",
+        "Preview": "Preview",
+        "Broadcast": "Broadcast"
+      },
+      "LibraryMaintenance": {
+        "MenuName": "Library Maintenance",
+        "MenuHint": "Consolidate, export, or import the shared audio library — recovery and moving-installation tools, not part of the daily workflow.",
+        "MenuLabel": "Open Library Maintenance",
+        "Title": "Library Maintenance",
+        "Intro": "These tools work on the library shared by every world on this Foundry installation. That sharing is convenient, but it also means the library is not part of any single world's backup and does not follow you to another machine on its own — the actions below exist for exactly that gap.",
+        "Export": {
+          "Title": "Export a Copy",
+          "Description": "Download library.json to your computer. This is the real backup: the data folder it normally lives in is not part of a Foundry world backup, so a copy saved outside Foundry entirely is the only one a mistake here cannot reach.",
+          "Submit": "Export a Copy"
+        },
+        "Import": {
+          "Title": "Import a Catalogue",
+          "Description": "Read a library.json exported from another installation — merge its rows into what is already here, or replace this catalogue with it entirely. Neither mode checks that the files themselves exist on this machine: a path missing here may still be correct on the next one.",
+          "Submit": "Import…"
+        },
+        "Consolidate": {
+          "Title": "Consolidate into the Data Folder",
+          "Description": "Copy every library file into this module's own data folder, renamed to a tidy lower-case form. Useful before moving to a new machine, since a library can otherwise point at files scattered across many locations. The most destructive tool here: originals are never deleted (Foundry's file API has no delete), so this permanently doubles the disk space the library uses. Always preview the plan before running it.",
+          "Submit": "Consolidate"
+        },
+        "Packs": {
+          "Title": "Content Packs",
+          "Description": "Modules that build soundboards, ambiences and playlists here through the Audio Console API. A pack only ever adds on load; it never changes what you have tuned since. Sync is how you take a newer pack version's changes, when you decide to.",
+          "Empty": "No content pack is registered in this world.",
+          "Count": "Containers: {count}",
+          "Submit": "Sync",
+          "SyncTitle": "Sync a Content Pack",
+          "SyncQuestion": "Bring the {count} containers of “{name}” back in line with what the pack ships?",
+          "SyncOverwrites": "On the pack's own sounds, boards and library rows this overwrites what the pack defines: volume, loop, icon, colour, random timing; board colour, fade, shuffle, favourite; track name, channel and volume in the library.",
+          "SyncKeeps": "Kept as they are: every name you gave a board, any sound you added to a pack's board yourself, any board you built, and every tag you added. A container you deleted is built again.",
+          "SyncSubmit": "Sync",
+          "Notify": {
+            "Synced": "“{name}” synced: {containers} containers, {entriesUpdated} sounds updated, {entriesAdded} added, {rowsUpdated} library rows updated.",
+            "Failed": "Syncing “{name}” failed — see the console for details."
+          }
+        }
+      }
+    }
+  }
+}

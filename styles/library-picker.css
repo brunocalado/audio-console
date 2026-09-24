@@ -1,0 +1,137 @@
+/*!
+ * Audio Console
+ * Copyright (c) 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* The "Add from Library" picker. Almost everything it looks like comes from base.css — the header
+   chrome, the search field, the tag chips and panel, the row band, the folder line and the indent
+   gutter are all shared primitives now, so this file only has what is genuinely this window's:
+   its own column layout for a checkbox-and-a-name row, and the checkbox itself.
+
+   It is a window of its own, outside the console's element, so it carries .audio-console for
+   base.css's tokens and its own sibling class from there — same arrangement as the tag manager. */
+
+.audio-console.audio-console-picker {
+
+  /* The window is one section from top to bottom: header, optional tag panel, the list, a status
+     footer. The list is the only part that flexes, which is what keeps the submit control at a
+     fixed place in the header and leaves no dead band under a short list. */
+  .window-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .ac-picker {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .ac-picker-table {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  /* Vertical only, and never horizontal: a name too long for the window truncates
+     (.ac-picker-name) rather than widening the list and putting a second scrollbar under it. The
+     row tags this list used to carry are what made that happen — they are in the filter panel
+     above now, not on the rows. */
+  .ac-picker-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  /* The row's own layout, the one thing .ac-row in base.css deliberately leaves to each list:
+     gutter, checkbox, name. Nothing competes with the name for the remaining width, so it gets
+     all of it. */
+  .ac-picker-row {
+    display: flex;
+    gap: 8px;
+  }
+
+  .ac-picker-check {
+    flex: 0 0 auto;
+    width: 15px;
+    height: 15px;
+    margin: 0;
+    /* Paints the tick and the filled box in the module's gold instead of the browser's default —
+       one property, no bespoke box to rebuild, and the native control keeps its own focus ring
+       and keyboard behaviour. */
+    accent-color: var(--ac-accent);
+    cursor: pointer;
+  }
+
+  .ac-picker-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ac-text);
+  }
+
+  /* A folder row is a real <button> here (see library-picker.js #renderFolderRow), so it arrives
+     with the form-control look core gives buttons — none of which .ac-row can assume, since the
+     Library tab's folder rows are divs. Undone to the row band base.css already describes.
+
+     justify-content is the one that is easy to miss and impossible to ignore: core lays a button
+     out as a centred flex box, so without this the whole folder line — indent gutter included —
+     floats in the middle of the row and every nesting level looks the same depth. */
+  .ac-row-folder {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
+    width: 100%;
+    border: 0 solid var(--ac-border);
+    border-radius: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1;
+    text-align: left;
+    text-shadow: none;
+
+    /* Written as border-width rather than a second `border-bottom` shorthand because the reset
+       above is more specific than base.css's .ac-row-boundary and would otherwise erase the one
+       separator a collapsed folder is supposed to draw under itself. */
+    &.ac-row-boundary {
+      border-bottom-width: 1px;
+    }
+  }
+
+  /* Both empty states — a pool with nothing in it, and filters that match nothing — read here.
+     library-picker.js decides which sentence; the table's own class decides whether it shows. */
+  .ac-picker-empty {
+    display: none;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ac-gap);
+    margin: 0;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    text-align: center;
+  }
+
+  .ac-picker-table.empty .ac-picker-scroll {
+    display: none;
+  }
+
+  .ac-picker-table.empty .ac-picker-empty {
+    display: flex;
+  }
+
+  /* The tag toggle stays pressed-looking while its panel is open — nothing else would say which
+     control opened it. Same rule the Library tab applies to its own toggle. */
+  .ac-tag-toggle.active {
+    background: var(--ac-surface-3);
+  }
+}

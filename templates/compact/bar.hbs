@@ -1,0 +1,49 @@
+{{!-- Compact mode: see what is playing, play/pause it, skip, and get back to the full console.
+      Nothing else — no playlist picker, no volume slider, no preview/broadcast indicator; those
+      jobs live only in the normal console.
+
+      This is the same data-transport-* contract transport.hbs uses: console-base.js's
+      updateTransport() writes to whichever of these elements exist and skips the ones a bar leaves
+      out, which is what lets this one carry five elements where the full bar carries a dozen.
+
+      No data-tooltip anywhere: this bar is silent on hover, by design. Every control keeps
+      its aria-label, which is a different thing — that is what a screen reader announces, and it
+      is still refreshed as play/pause changes meaning. --}}
+<div class="ac-compact-bar" data-transport>
+
+    <span class="ac-compact-handle" data-drag-handle aria-hidden="true">
+        <i class="fa-solid fa-grip-vertical" inert></i>
+    </span>
+
+    {{!-- Hairlines around the two things that are not transport: the grip that moves the bar and
+          the button that leaves it. What sits between them is the bar's actual job. --}}
+    <span class="ac-sep" aria-hidden="true"></span>
+
+    <div class="ac-compact-controls">
+        <button type="button" class="ac-transport-button ac-transport-primary" data-action="transportToggle"
+                data-transport-toggle
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Play"}}" disabled>
+            <i class="fa-solid fa-play" data-transport-toggle-icon inert></i>
+        </button>
+        <button type="button" class="ac-transport-button" data-action="transportNext"
+                data-transport-next
+                aria-label="{{localize "AUDIO_CONSOLE.Transport.Next"}}" disabled>
+            <i class="fa-solid fa-forward-step" inert></i>
+        </button>
+    </div>
+
+    <div class="ac-compact-now">
+        {{!-- The subtitle the full bar carries as a second line is folded in here: with the
+              playlist picker gone this is the only thing naming what is playing, so it shows the
+              track and the container it came from. --}}
+        <span class="ac-compact-title" data-transport-title>{{localize "AUDIO_CONSOLE.Transport.Idle"}}</span>
+        <span class="ac-compact-subtitle" data-transport-subtitle></span>
+    </div>
+
+    <span class="ac-sep" aria-hidden="true"></span>
+
+    <button type="button" class="ac-transport-button" data-action="expandMode"
+            aria-label="{{localize "AUDIO_CONSOLE.Compact.Expand"}}">
+        <i class="fa-solid fa-expand" inert></i>
+    </button>
+</div>

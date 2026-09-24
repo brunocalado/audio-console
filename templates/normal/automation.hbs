@@ -1,0 +1,115 @@
+{{!-- Automation: an ordered list of rules, an arm switch, and a log of what has fired.
+
+      The order of the list IS the priority — every rule whose trigger matches fires, and the
+      order decides the sequence they fire in. That is why the rows carry a drag handle and no
+      priority number: a number would be a second thing to keep in step with the order it already
+      describes. --}}
+<section class="tab ac-section ac-automation {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    <header class="ac-section-header">
+        <div class="ac-automation-arm">
+            {{!-- The one control that decides whether any of this reaches the table, so it names
+                  its own state rather than being a bare toggle: "Armed" and "Disarmed" are what
+                  the GM is checking for at a glance mid-session. --}}
+            <button type="button" class="ac-button ac-arm-button{{#if automation.armed}} active{{/if}}"
+                    data-action="automationToggleArmed" aria-pressed="{{#if automation.armed}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Automation.ArmHint"}}">
+                <i class="fa-solid {{#if automation.armed}}fa-bolt{{else}}fa-bolt-slash{{/if}}" inert></i>
+                <span inert>{{#if automation.armed}}{{localize "AUDIO_CONSOLE.Automation.Armed"}}{{else}}{{localize "AUDIO_CONSOLE.Automation.Disarmed"}}{{/if}}</span>
+            </button>
+            <span class="ac-status">{{localize "AUDIO_CONSOLE.Automation.Count" enabled=automation.enabledCount total=automation.rules.length}}</span>
+        </div>
+
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="automationNewRule">
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Automation.Actions.New"}}</span>
+            </button>
+        </div>
+    </header>
+
+    {{!-- Automation runs on exactly one client (the active GM). A second GM with the console open
+          is looking at a list somebody else is executing, and saying so is cheaper than letting
+          them conclude the arm switch is broken. --}}
+    {{#unless automation.isDriver}}
+    <p class="ac-automation-notice">{{localize "AUDIO_CONSOLE.Automation.NotDriver"}}</p>
+    {{/unless}}
+
+    <div class="ac-automation-body">
+        <ul class="ac-rule-list" data-rule-list aria-label="{{localize "AUDIO_CONSOLE.Automation.ListLabel"}}">
+            {{#each automation.rules as |rule|}}
+            <li class="ac-rule{{#unless rule.enabled}} disabled{{/unless}}{{#if rule.missing}} broken{{/if}}"
+                draggable="true" data-rule-id="{{rule.id}}">
+
+                <i class="fa-solid fa-grip-vertical ac-rule-handle" inert
+                   data-tooltip="{{localize "AUDIO_CONSOLE.Automation.DragHint"}}"></i>
+
+                <button type="button" class="ac-row-action ac-rule-toggle" data-action="automationToggleRule"
+                        data-rule-id="{{rule.id}}" aria-pressed="{{#if rule.enabled}}true{{else}}false{{/if}}"
+                        aria-label="{{#if rule.enabled}}{{localize "AUDIO_CONSOLE.Automation.Actions.Disable"}}{{else}}{{localize "AUDIO_CONSOLE.Automation.Actions.Enable"}}{{/if}}"
+                        data-tooltip="{{#if rule.enabled}}{{localize "AUDIO_CONSOLE.Automation.Actions.Disable"}}{{else}}{{localize "AUDIO_CONSOLE.Automation.Actions.Enable"}}{{/if}}">
+                    <i class="fa-solid {{#if rule.enabled}}fa-toggle-on{{else}}fa-toggle-off{{/if}}" inert></i>
+                </button>
+
+                <div class="ac-rule-text">
+                    <span class="ac-rule-trigger">
+                        {{!-- The lit dot means "this condition holds right now". Only state rules
+                              have one; an event rule is never "on", it only ever happens. --}}
+                        {{#if rule.isState}}
+                        <span class="ac-rule-dot{{#if rule.active}} active{{/if}}" inert
+                              data-tooltip="{{#if rule.active}}{{localize "AUDIO_CONSOLE.Automation.StateOn"}}{{else}}{{localize "AUDIO_CONSOLE.Automation.StateOff"}}{{/if}}"></span>
+                        {{/if}}
+                        {{rule.trigger}}
+                    </span>
+                    <i class="fa-solid fa-arrow-right ac-rule-arrow" inert></i>
+                    <span class="ac-rule-action" title="{{rule.action}}">{{rule.action}}</span>
+                </div>
+
+                {{#if rule.missing}}
+                <i class="fa-solid fa-triangle-exclamation ac-rule-warning" inert
+                   data-tooltip="{{localize "AUDIO_CONSOLE.Automation.BrokenHint"}}"></i>
+                {{/if}}
+
+                <button type="button" class="ac-row-action" data-action="automationTestRule" data-rule-id="{{rule.id}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Automation.Actions.Test"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Automation.Actions.TestHint"}}">
+                    <i class="fa-solid fa-play" inert></i>
+                </button>
+                <button type="button" class="ac-row-action" data-action="automationEditRule" data-rule-id="{{rule.id}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Automation.Actions.Edit"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Automation.Actions.Edit"}}">
+                    <i class="fa-solid fa-gear" inert></i>
+                </button>
+                <button type="button" class="ac-row-action" data-action="automationDeleteRule" data-rule-id="{{rule.id}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Automation.Actions.Delete"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Automation.Actions.Delete"}}">
+                    <i class="fa-solid fa-xmark" inert></i>
+                </button>
+            </li>
+            {{else}}
+            <li class="ac-empty-hint">
+                {{#if automation.hasTargets}}{{localize "AUDIO_CONSOLE.Automation.Empty"}}{{else}}{{localize "AUDIO_CONSOLE.Automation.NoTargets"}}{{/if}}
+            </li>
+            {{/each}}
+        </ul>
+
+        {{!-- The log. Kept in the section rather than behind a button because the question it
+              answers — "did that just fire, and did it find what it wanted?" — is asked while
+              something sounds wrong, which is the worst moment to go looking for a panel. --}}
+        <div class="ac-automation-log">
+            <h3 class="ac-automation-log-heading">{{localize "AUDIO_CONSOLE.Automation.Log.Heading"}}</h3>
+            <ul class="ac-log-list" aria-label="{{localize "AUDIO_CONSOLE.Automation.Log.Heading"}}">
+                {{#each automation.log as |entry|}}
+                <li class="ac-log-entry{{#if entry.failed}} failed{{/if}}">
+                    <span class="ac-log-time">{{entry.time}}</span>
+                    <span class="ac-log-how">{{entry.how}}</span>
+                    <span class="ac-log-name" title="{{entry.name}}">{{entry.name}}</span>
+                    {{#if entry.outcome}}<span class="ac-log-outcome">{{entry.outcome}}</span>{{/if}}
+                </li>
+                {{else}}
+                <li class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Automation.Log.Empty"}}</li>
+                {{/each}}
+            </ul>
+        </div>
+    </div>
+</section>

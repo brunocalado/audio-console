@@ -1,0 +1,1930 @@
+/*!
+ * Audio Console
+ * Copyright (c) 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* Normal mode: rail on the left, one section to the right of it, transport across the bottom.
+   Tokens and shared primitives come from base.css; nothing here re-declares a colour. */
+
+.audio-console.audio-console-normal {
+
+  /* A grid rather than nested flex rows, because ApplicationV2 renders every part as a direct
+     child of .window-content — there is no wrapper to put the rail and the section inside, and
+     adding one would mean a part that exists only to hold other parts. */
+  .window-content {
+    display: grid;
+    /* The rail is sized so its five fixed labels never truncate — "Soundboards" is the longest and
+       clipped by 2px at the old 132px. Only the favourites below them are allowed to ellipsis,
+       because only their text is unknown in advance. */
+    grid-template-columns: 148px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    align-items: stretch;
+    height: 100%;
+  }
+
+  /* --- Window header -------------------------------------------------- */
+
+  /* Compact mode, sitting immediately left of the controls ellipsis (console-normal.js
+     _renderFrame). It carries core's .header-control — which is what keeps a press on it from
+     dragging the window — so this only has to undo that class's icon-button sizing and let a
+     label sit beside the glyph. */
+  .window-header .ac-header-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    width: auto;
+    height: 24px;
+    padding: 0 8px;
+    border: 1px solid var(--ac-border);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-2);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-3);
+      color: var(--ac-text);
+    }
+  }
+
+  /* --- Left rail ------------------------------------------------------ */
+
+  /* The rail carries core's `tabs` class so ApplicationV2's own changeTab() can find its buttons,
+     which also brings core's nav layout (space-evenly, centred). Both are overridden here — a
+     four-item rail spread down 600px of window is not a rail. */
+  /* The rail is a wrapper now rather than the nav itself: the five sections are fixed at the top
+     and the favourites list scrolls under them. min-height: 0 on both this and the list is what
+     makes that scroll happen inside the rail instead of stretching the window — a flex item's
+     default min-height is auto, which refuses to shrink below its content. */
+  .ac-rail {
+    display: flex;
+    grid-column: 1;
+    grid-row: 1;
+    flex-direction: column;
+    align-items: stretch;
+    min-height: 0;
+    /* No left padding: the active item's accent bar is meant to sit against the window edge, and
+       a gutter here is what previously left it floating with rail surface showing to its left.
+       The 6px is kept on the right, where it still holds the items off the rail's own border. */
+    padding: var(--ac-gap) 6px var(--ac-gap) 0;
+    border-right: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+  }
+
+  /* Never shrinks: the five sections are the rail's fixed furniture, and a long favourites list
+     must not squeeze them. */
+  .ac-rail-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+  }
+
+  .ac-rail-favorites {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+    /* The rule the GM asked for, drawn as a border on the block rather than an <hr>: it spans the
+       rail's full width including the strip the accent bar occupies, so it reads as a division of
+       the rail and not as one more list item. */
+    margin-top: var(--ac-gap);
+    padding-top: var(--ac-gap);
+    border-top: 1px solid var(--ac-border);
+  }
+
+  /* A caption over the list, not one more thing to click. Three cues carry that, and each one
+     answers a way the previous version read as a button: it is centred where every item is left
+     aligned behind an icon; it sits lighter than the items so it cannot be mistaken for one at
+     rest; and it has no accent bar, no background and no hover, so it cannot be mistaken for one
+     that is selected either.
+
+     The colour is deliberately between the two text tokens rather than --ac-text itself — full
+     brightness plus bold is exactly what an *active* rail item wears, which is the one look this
+     had to avoid. */
+  .ac-rail-heading {
+    flex: 0 0 auto;
+    margin: 0 0 4px;
+    padding: 0 10px;
+    border: 0;
+    background: none;
+    color: color-mix(in oklab, var(--ac-text) 55%, var(--ac-text-dim));
+    font-size: var(--font-size-11);
+    font-weight: 700;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  /* Scrolls on its own. overflow-x is hidden rather than left to default: a favourite's label is
+     truncated (below), and the one thing that must never happen is the rail growing a horizontal
+     scrollbar because a container has a long name. */
+  .ac-rail-favorites-list {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  /* A favourite is a jump, not a section, so it never wears the active bar — the section it jumps
+     to lights up instead. Slightly dimmer than a tab at rest for the same reason. */
+  .ac-rail-favorite {
+    font-size: var(--font-size-12);
+
+    &.active {
+      border-left-color: transparent;
+    }
+  }
+
+  .ac-rail-item {
+    display: flex;
+    flex: 0 0 auto;
+    /* Core's `.tabs` rules centre a button's own content on the main axis; text-align has no
+       effect on flex layout, so this has to be overridden here explicitly. */
+    justify-content: flex-start;
+    align-items: center;
+    gap: 8px;
+    min-height: 36px;
+    /* 8px on the left, measured from the accent bar rather than from the window edge: the rail
+       gave up its own 6px gutter above, so this is the whole of the space between the marker and
+       an item's icon. */
+    padding: 8px 10px 8px 8px;
+
+    /* Icon glyphs vary in intrinsic width (record-vinyl vs. list-ol vs. grip vs. sliders); without
+       a fixed width here the labels drift out of column alignment even though each button is
+       itself left-aligned. */
+    & i {
+      flex: 0 0 16px;
+      text-align: center;
+    }
+
+    /* Truncate rather than widen the rail or scroll it sideways. min-width: 0 is the load-bearing
+       half: a flex item will not shrink below its content's min-content width without it, so the
+       ellipsis would never trigger and a long favourite name would push the rail wider instead. */
+    & > span {
+      flex: 1 1 auto;
+      min-width: 0;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
+    /* The active section is marked by a bar and a weight change as well as by colour. */
+    border: 0;
+    border-left: 3px solid transparent;
+    /* Square on the left, soft on the right. The bar is flush against the window edge, so rounding
+       that side would round the window's own edge — which is what made the mark read as a bulge
+       rather than as a marker. The right corners keep --ac-radius, so the highlight still belongs
+       to the same family of shapes as everything else in the module. */
+    border-radius: 0 var(--ac-radius) var(--ac-radius) 0;
+    background: transparent;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-13);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+    }
+
+    &.active {
+      border-left-color: var(--ac-accent);
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+      font-weight: 700;
+    }
+
+    & > i {
+      width: 1em;
+      text-align: center;
+    }
+  }
+
+  /* --- Sections ------------------------------------------------------- */
+
+  /* All four sections occupy the same cell; only the active one is displayed. */
+  .ac-section {
+    display: none;
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .ac-section.active {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .ac-section-placeholder {
+    align-items: center;
+    justify-content: center;
+    color: var(--ac-text-dim);
+  }
+
+  /* --- Tag filter panel --------------------------------------------------- */
+
+  /* The toggle stays pressed-looking while its panel is open — nothing else would say which
+     control opened it. Scoped to the whole section rather than repeated per button location. */
+  .ac-library .ac-button-quiet.active {
+    background: var(--ac-surface-3);
+    color: var(--ac-text);
+  }
+
+  /* Pinned to the cloud's top-right corner and staying there while the chips scroll under it:
+     `float` puts it in the corner and lets the chips wrap around, `sticky` keeps it from scrolling
+     away with them. Deliberately NOT chip-shaped — it is the one control in this panel that does
+     not filter anything, and a GM reaching for a filter must never land on the window that renames
+     tags across the whole library.
+
+     So it is built out of the one border colour no chip uses. Chip borders are either --ac-border
+     (dim outline) or --ac-accent (the protected type pair); this takes --ac-text-dim, which is
+     brighter than both and reads as the edge of a button rather than the edge of a label. With the
+     filled surface, ordinary-weight white text and the gold icon, no chip state — dim outline,
+     gold fill, dashed +N, gold-bordered type — looks like it.
+
+     The hover inverts to a full accent fill instead of nudging the surface one step. It used to go
+     surface-3 -> border, two neighbouring greys about 5% apart, which is not a hover so much as a
+     rumour of one. Icon and text flip to accent-ink with it, so the whole control changes at once
+     and the pointer is never in doubt about what it is on. */
+  .ac-manage-tags {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    float: right;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: 0 0 6px 8px;
+    /* Padding carries the height that line-height used to. */
+    padding: 6px 10px;
+    border: 1px solid var(--ac-text-dim);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-3);
+    color: var(--ac-text);
+    font-size: var(--font-size-12);
+    /* Not 1.4, which is the chip idiom and was copied in from there by mistake. align-items:center
+       centres the two children's *boxes*, and at 1.4 the label's box is 16.8px against the icon's
+       12px — Font Awesome sets its own line-height — so equal boxes were never being centred and
+       the glyph rode 0.51px high. Measured against .ac-button (Add files, Scan folder), which uses
+       line-height: 1 and lands both ink centres on the same pixel exactly. */
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease,
+      border-color var(--ac-motion) ease;
+
+    & > i {
+      color: var(--ac-accent);
+      transition: color var(--ac-motion) ease;
+    }
+
+    &:hover {
+      border-color: var(--ac-accent);
+      background: var(--ac-accent);
+      color: var(--ac-accent-ink);
+
+      & > i {
+        color: var(--ac-accent-ink);
+      }
+    }
+  }
+
+
+  /* --- The virtualised table ------------------------------------------- */
+
+  .ac-table {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    /* The actions column is sized for the seven row buttons it holds — drag grip, preview, play to
+       table, add to queue, save as macro, edit, remove — so a hovered row cannot widen and shove
+       the others. 7 x 26px plus six 2px gaps is 194px; the rest is slack. The channel column
+       is sized to its own header word rather than to the 26px button it holds: it is a field, and
+       a *named* column is what stops that button reading as one more row action that wandered out
+       of place. */
+    --ac-columns: minmax(0, 3fr) 68px minmax(0, 3fr) 204px;
+  }
+
+  .ac-thead {
+    display: grid;
+    flex: 0 0 auto;
+    grid-template-columns: var(--ac-columns);
+    align-items: center;
+    gap: var(--ac-gap);
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* The scroll container is the viewport; .ac-spacer gives the scrollbar the full extent of the
+     catalogue and .ac-rows is the small window of real elements moved with translateY. */
+  .ac-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    position: relative;
+  }
+
+  .ac-spacer {
+    position: relative;
+    width: 100%;
+  }
+
+  .ac-rows {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  /* Only this table's own column layout lives here — the row chrome every list in the module
+     shares (fixed height, padding, surface, hover, focus) is .ac-row in base.css. The height is
+     fixed rather than a min-height because every offset in the virtual window is arithmetic on it,
+     and one variable-height row makes every row below it land wrong; console-normal.js sets
+     --ac-row-height so the number lives in one place. */
+  .ac-row {
+    display: grid;
+    grid-template-columns: var(--ac-columns);
+    gap: var(--ac-gap);
+
+    /* A folder header has a name and a count and nothing else, so it forgoes the three-column
+       grid every other row uses and flexes edge-to-edge instead. Indentation per depth comes from
+       its tree-guide gutter (.ac-tree-gutter, folder-tree.js renderTreeGutter), not from here.
+       The override has to sit inside this rule rather than beside it in base.css: display:grid
+       above is declared at a higher specificity than anything base.css can reach a folder row
+       with, so a flatter selector there would simply lose. */
+    &.ac-row-folder {
+      display: flex;
+      gap: 8px;
+    }
+  }
+
+  /* Long names truncate and carry the full path as a title; they never wrap, because a wrapped
+     row is a taller row and the arithmetic above depends on it not being. */
+  .ac-cell {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Holds the tree-guide gutter ahead of the name (console-normal.js #renderRow) — flex instead
+     of the plain nowrap/ellipsis every other cell uses, since truncation now has to happen on
+     .ac-name-text alone, past the gutter's fixed width. */
+  .ac-cell-name {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    overflow: hidden;
+    white-space: normal;
+    text-overflow: clip;
+  }
+
+  .ac-name-text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .ac-cell-tags {
+    display: flex;
+    gap: 4px;
+    overflow: hidden;
+  }
+
+  .ac-row-tag {
+    padding: 1px 6px;
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-2);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    line-height: 1.5;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* The "+N" overflow chip past MAX_ROW_TAGS (console-normal.js): dashed rather than solid so it
+     never reads as a real tag name at a glance. The full list is the cell's own title tooltip. */
+  .ac-row-tag-more {
+    border: 1px dashed var(--ac-border);
+    background: transparent;
+  }
+
+  /* The channel cell, and the header above it — one rule, because the whole point is that the
+     button lines up under its own word. The cell holds one icon button, the only control in a
+     library row that changes what it points at rather than acting on it. */
+  .ac-cell-channel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+
+  /* Dim like the row actions beside it, and staying dim on hover: this is an indicator, not a
+     control. The gold hover it used to have belonged to the button that cycled the channel from
+     here — that click is gone, and the channel is changed in the Edit Audio dialog. */
+  .ac-channel-mark {
+    color: var(--ac-text-dim);
+  }
+
+  .ac-cell-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 2px;
+  }
+
+  /* The row's drag handle, in the actions cell with the buttons it shares a size with. The cursor
+     is what tells it apart from them: a hand, not a pointer, for the one control here that is
+     picked up rather than pressed. */
+  .ac-row-grip {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  /* A row whose file could not be found at its saved path: rendered dimmed with a badge and left
+     in the list. Dimmed by swapping the name to --ac-text-dim rather than an opacity on the whole
+     row — opacity would also soften the badge, and the badge's own contrast against --ac-live is
+     what a GM scanning for trouble most needs to keep. */
+  .ac-row.missing .ac-cell-name {
+    color: var(--ac-text-dim);
+  }
+
+  /* Reuses --ac-live, the same red already measured at 6.43:1 (surface-0 on live) for the
+     transport's LIVE chip — never a colour invented for just this one badge. */
+  .ac-missing-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: var(--ac-live);
+    color: var(--ac-surface-0);
+    font-size: var(--font-size-11);
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
+  /* --- Library empty state ---------------------------------------------- */
+
+  /* Distinct from "filtered to nothing", which the status line and Clear filters already cover:
+     this is the genuinely-empty catalogue, a fresh install with nothing added yet. */
+  .ac-library-empty {
+    display: none;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ac-gap);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    text-align: center;
+  }
+
+  .ac-table.empty .ac-scroll {
+    display: none;
+  }
+
+  .ac-table.empty .ac-library-empty {
+    display: flex;
+  }
+
+  /* --- Playlists section -------------------------------------------------- */
+
+  .ac-playlists-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ac-container-list {
+    display: flex;
+    flex: 0 0 220px;
+    flex-direction: column;
+    gap: 4px;
+    padding: var(--ac-gap);
+    overflow-y: auto;
+    border-right: 1px solid var(--ac-border);
+  }
+
+  /* One line — Playlists, Soundboard and Ambience cards are all just a name (plus, for Playlists
+     and Ambience, a playing icon): a pad/track/layer count read as noise once the card was
+     selectable by name alone, so there's nothing left to stack under it in a second line. */
+  .ac-container-card {
+    /* A <button>'s width:auto is shrink-to-fit by default — a form-control quirk that only gets
+       overridden by flexbox stretch when the button is itself a *direct* flex child.
+       .ac-container-card-wrap nests it one level deeper, so without this it grows past the card
+       to fit a long name instead of truncating. */
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    /* The default line-height leaves unequal space above and below the glyphs (font metrics, not
+       box metrics) — align-items: center then centers that lopsided line box, not the text inside
+       it, which reads as sitting a couple pixels high. */
+    line-height: 1;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-1);
+    color: var(--ac-text-dim);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+    }
+
+    &.active {
+      border-color: var(--ac-accent);
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+    }
+  }
+
+  .ac-container-name {
+    /* A row's main-axis automatic minimum size defaults to the text's own min-content width — for
+       nowrap text, that is its full length — which silently disables the truncation below by
+       letting the name overflow the card instead of shrinking to fit it. min-width: 0 opts back
+       into the shrink so overflow/ellipsis actually get a chance to run. */
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--ac-text);
+    font-size: var(--font-size-13);
+    font-weight: 700;
+  }
+
+  /* Playing is marked by an icon as well as being the reason the card differs, never colour alone. */
+  .ac-container-playing {
+    flex-shrink: 0;
+    margin-left: auto;
+    color: var(--ac-accent);
+  }
+
+  /* The wrapper carries no look of its own — .ac-container-card keeps the exact box it always had
+     — it only exists to give the rename button a positioning context alongside the (real,
+     independently focusable) selection button, without nesting one button inside another. */
+  .ac-container-card-wrap {
+    position: relative;
+  }
+
+  /* .ac-icon-button's own :hover paints a square surface-3 fill — fine when the button sits in its
+     own row, but this one is absolutely positioned over the card's gold-bordered active state,
+     where that square reads as a stray patch rather than a hover. A colour change alone says
+     "hoverable" without the overlap.
+     The :hover override is written as .ac-icon-button.ac-container-rename rather than just
+     .ac-container-rename: both classes land on the same element, so a single-class :hover here
+     ties with .ac-icon-button's own on specificity, and the tie-break silently flips to whichever
+     rule happens to sit later in the file — it already broke once, when this block moved above
+     .ac-icon-button during a later edit. The two-class selector wins outright, independent of
+     where either rule is declared. */
+  .ac-container-rename {
+    position: absolute;
+    top: 50%;
+    right: 6px;
+    transform: translateY(-50%);
+  }
+
+  .ac-icon-button.ac-container-rename:hover {
+    background: transparent;
+    color: var(--ac-accent);
+  }
+
+  /* Room for the rename button so a long name's ellipsis lands before it rather than under it. */
+  .ac-container-card-wrap.active .ac-container-card {
+    padding-right: 34px;
+  }
+
+  /* Pinning the open container, in the section toolbar beside Delete. Gold when pinned, and the
+     glyph swaps between the outline and solid hearts (see the templates) so the state is never
+     carried by colour alone. */
+  .ac-icon-button.ac-favorite-toggle.active,
+  .ac-icon-button.ac-duck-toggle.active {
+    color: var(--ac-accent);
+  }
+
+  /* Mid-rename the wrapper stops being a positioning context with a card in it and becomes a real
+     row: the field and its confirm/cancel pair replace the card outright (console-normal.js
+     #renameState), so there is nothing left to position anything over. Same shape the tag manager's
+     editing row takes, deliberately — one rename gesture across the module. */
+  .ac-container-card-wrap.editing {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    padding: 2px 4px;
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-2);
+  }
+
+  .ac-container-rename-input {
+    flex: 1;
+    min-width: 0;
+    height: 26px;
+    padding: 0 6px;
+    /* Gold, like the tag manager's: the border is what says "this is the field you are typing in"
+       when the row it replaced looked like a button. */
+    border: 1px solid var(--ac-accent);
+    border-radius: var(--ac-radius);
+    background: var(--ac-surface-0);
+    color: var(--ac-text);
+    font-size: var(--font-size-13);
+  }
+
+  .ac-container-detail {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ac-icon-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: transparent;
+    color: var(--ac-text-dim);
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-3);
+      color: var(--ac-text);
+    }
+  }
+
+  .ac-container-detail-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .ac-fade-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+
+    & input {
+      width: 64px;
+      height: var(--input-height);
+      padding: 0 6px;
+      border: 1px solid var(--ac-border);
+      border-radius: var(--ac-radius);
+      background: var(--ac-surface-2);
+      color: var(--ac-text);
+    }
+  }
+
+  /* The virtualised entry list — playlists.hbs. The scroller is what holds the overflow, the
+     spacer is the full height of every row so the scrollbar tells the truth, and .ac-entry-list is
+     the moving window translated into view by virtual-list.js. Three elements where there used to
+     be one, for the same reason the library table has them. */
+  .ac-entry-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .ac-entry-spacer {
+    position: relative;
+    width: 100%;
+  }
+
+  /* The shared look of an entry list. Now Playing uses the same class and is NOT virtualised, so
+     everything about the scroll window below is scoped to Playlists rather than declared here. */
+  .ac-entry-list {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  /* Now Playing scrolls itself, the way both lists did before Playlists grew a scroll window. */
+  .ac-queue .ac-entry-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Playlists only: absolute inside the spacer and moved by transform, exactly like .ac-rows —
+     the spacer is what the scrollbar measures, and the window only has to land on the right row. */
+  .ac-playlists .ac-entry-list {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
+  }
+
+  /* Shown only when the container really is empty, in place of the list — distinct from a list
+     that simply has nothing painted at this scroll offset. */
+  .ac-entry-empty {
+    display: none;
+
+    &.visible {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .ac-entry {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    border-top: 2px solid transparent;
+    background: var(--ac-surface-0);
+
+    &:hover {
+      background: var(--ac-surface-2);
+    }
+
+    /* Playing is also the play button's own icon swap — this tint is a reinforcement, not the
+       only signal. */
+    &.playing {
+      background: var(--ac-surface-2);
+    }
+
+    /* Parked mid-track, not stopped. The transport already draws that distinction and the Now
+       Playing list must not contradict it, so the row keeps a marker of its own — the word in
+       .ac-entry-state, with this stripe reinforcing it rather than carrying it alone. */
+    &.paused {
+      border-left: 3px solid var(--ac-accent);
+      padding-left: calc(var(--ac-gap) - 3px);
+    }
+
+    &.drag-over-before {
+      border-top-color: var(--ac-accent);
+    }
+
+    &.drag-over-after {
+      border-bottom: 2px solid var(--ac-accent);
+    }
+  }
+
+  /* Scoped to Playlists, which is the only virtualised entry list: virtualisation is arithmetic on
+     a constant pitch, so a row that could grow by a line would put every row below it in the wrong
+     place. --ac-entry-height is what the row measured before it was pinned — a 28px action button,
+     6px of padding either side, and the 2px/1px borders. Now Playing keeps auto height, because
+     nothing there is virtualised. */
+  .ac-playlists .ac-entry {
+    box-sizing: border-box;
+    height: var(--ac-entry-height);
+  }
+
+  .ac-entry-handle {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    cursor: grab;
+  }
+
+  /* In Playlists the name plays the track as well as naming it (playlists.hbs), so it says so on
+     hover. Not a <button>: the play button beside it is the focusable, labelled control, and this
+     is a second target for a mouse — turning the name into a control of its own would put two
+     tab stops on one row for one action. Queue and Ambience use the same class for a name that is
+     only a name, which is why the pointer lives on the Playlists scope rather than here. */
+  .ac-entry-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ac-playlists .ac-entry-name {
+    cursor: pointer;
+
+    &:hover {
+      color: var(--ac-accent);
+    }
+  }
+
+  /* What the tags cell used to be. Tabular figures so the colons line up down the column instead
+     of drifting with the digits either side of them. */
+  .ac-entry-duration {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The per-track slider, in Playlists and Now Playing alike. A fixed width rather than a flex
+     share: a slider that changed length with the window would change what a given drag distance
+     means, and the name is the cell meant to absorb the spare width. Same shape as
+     .ac-layer-volume, which is a grid track and cannot be reused here. */
+  .ac-entry-volume {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    width: 120px;
+    color: var(--ac-text-dim);
+
+    & input[type="range"] {
+      flex: 1;
+      min-width: 0;
+      accent-color: var(--ac-accent);
+      cursor: pointer;
+    }
+  }
+
+  .ac-entry-add-library {
+    flex: 0 0 auto;
+    font-size: var(--font-size-11);
+  }
+
+  .ac-empty-hint {
+    padding: var(--ac-gap);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+  }
+
+  .ac-container-detail-empty {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* --- Now Playing section ------------------------------------------------ */
+
+  /* No container list beside it, unlike the three sections above: bootstrap guarantees exactly one
+     queue, so there is nothing to pick and the entry list gets the whole width. */
+  .ac-queue-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* "Paused" beside the name of a parked track. Dim and small — it is a state label, not a tag,
+     so it deliberately does not take the chip shape .ac-row-tag has. */
+  .ac-entry-state {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* --- Soundboard section ----------------------------------------------- */
+
+  /* Same left-list/right-detail shell as the Playlists section — .ac-container-list and
+     .ac-container-card above are shared verbatim; only the detail pane differs, a grid instead of
+     a list, because pads are aimed at rather than read. */
+  .ac-soundboard-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ac-soundboard-detail {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* Square tiles, not the 112×96 rectangles this started as. A pad is a target: a square is the
+     shape whose distance from the centre is the same whichever way the pointer comes in, and it
+     is what every hardware and software sampler converges on. The row height comes from the
+     tile's own aspect-ratio rather than a fixed grid-auto-rows, so the tiles stay square at every
+     window width instead of squashing as the columns stretch. */
+  /* Both tracks are the same definite size, which is what makes a pad square — not `aspect-ratio`
+     on the tile. That was the first attempt and it comes apart on a full board: with `1fr` columns
+     the tile's width is not known while the browser is sizing the rows, so the ratio contributes
+     nothing to the row's intrinsic height, the rows collapse to about 12px, and every tile then
+     paints 108px tall over the eight below it. Measured at 1534 pads in v14.367 — a wall of
+     vertical stripes. Definite tracks have no such circularity: the row is square because the
+     column is.
+
+     Definite does not mean fixed. `--ac-pad-size` is written by console-normal.js #fitPadGrid on
+     every resize: as many columns as fit at --ac-pad-min, then the tiles grown to close the gap
+     to the right-hand edge exactly. --ac-pad-size's value here is only what the first frame uses
+     before that measurement lands.
+
+     scrollbar-gutter keeps that measurement stable. Without it, growing the tiles can be what
+     makes the board overflow, the scrollbar then takes the width back, and the next observation
+     shrinks them again. */
+  /* The virtualised pad grid — soundboard.hbs. The scroller owns the overflow and the padding the
+     grid used to carry; the spacer is as tall as every row of tiles; .ac-pad-grid is the moving
+     window and stays the grid itself, because a tile has to be a direct child of the thing laying
+     the columns out. */
+  .ac-pad-scroll {
+    flex: 1;
+    min-height: 0;
+    padding: var(--ac-gap);
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+  }
+
+  .ac-pad-spacer {
+    position: relative;
+    width: 100%;
+  }
+
+  .ac-pad-grid {
+    --ac-pad-min: 96px;
+    --ac-pad-size: var(--ac-pad-min);
+
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
+    display: grid;
+    /* Fixed count rather than auto-fill: virtual-list.js has to agree with the browser about how
+       many tiles share a row, or the spacer's height and the translate are computed against a
+       different layout than the one on screen. #fitPadGrid measures the width and writes both
+       custom properties. */
+    grid-template-columns: repeat(var(--ac-pad-columns, 1), var(--ac-pad-size));
+    grid-auto-rows: var(--ac-pad-size);
+    gap: var(--ac-gap);
+    align-content: start;
+    justify-content: start;
+  }
+
+  /* Shown in place of the grid only when the board really has no pads. */
+  .ac-pad-empty {
+    display: none;
+
+    &.visible {
+      display: flex;
+      flex: 1;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  .ac-pad {
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    background: var(--ac-surface-2);
+    border: 1px solid var(--ac-border);
+    border-top: 3px solid var(--ac-pad-color, transparent);
+    border-radius: var(--ac-radius);
+
+    /* A pad's colour is a full-tile wash, not just the stripe: at a grid of twenty pads a 3px
+       edge is not what the eye groups by. The wash is a *mix*, never the raw colour — an
+       arbitrary GM-chosen colour behind the fixed light label measured as low as 2.77:1, well
+       under this module's 4.5:1 floor, and 16% of it is the most that can be laid over
+       --ac-surface-2 while the worst case (a pure white pick) still clears 9:1. The stripe stays
+       full-strength above it, so the actual colour chosen is still readable at a glance.
+
+       The class rather than `--ac-pad-color` alone: color-mix() with the transparent fallback
+       would tint every uncoloured pad's background *transparent* by 16% rather than leaving it
+       opaque, and the template only emits the custom property when there is a colour anyway. */
+    &.coloured {
+      background: color-mix(in oklab, var(--ac-pad-color) 16%, var(--ac-surface-2));
+      border-color: color-mix(in oklab, var(--ac-pad-color) 35%, var(--ac-border));
+      border-top-color: var(--ac-pad-color);
+    }
+
+    /* A ring, not a colour swap alone — the same "state is never colour-only" rule the LIVE chip
+       follows. It is an overlay rather than an inset box-shadow on the tile itself: the pad face
+       is an image now, and a shadow on the element paints under its own children, so the ring
+       vanished behind the artwork. */
+    &.playing::after {
+      content: "";
+      position: absolute;
+      z-index: 2;
+      inset: 0;
+      box-shadow: inset 0 0 0 3px var(--ac-accent);
+      pointer-events: none;
+    }
+  }
+
+  /* The whole tile is the button, with no padding of its own: the image fills it edge to edge and
+     the corner controls float above on their own translucent plates, which is what keeps them
+     legible over any artwork without stealing a band of the face.
+
+     `height: 100%` is not decoration. A <button> does not stretch as a flex item in Chromium the
+     way a div does — measured in v14.367, where this one sat at exactly its own padding height
+     inside a 92px pad, leaving its content a 0px box to shrink into. Neither align-self:stretch
+     nor the parent's align-items changes it; an explicit height does. */
+  .ac-pad-fire {
+    position: relative;
+    display: flex;
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ac-text);
+    font-size: var(--font-size-13);
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    /* The hover wash rides above the artwork rather than behind it. */
+    &::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: transparent;
+      pointer-events: none;
+      transition: background var(--ac-motion) ease;
+    }
+
+    &:hover::after {
+      background: rgb(255 255 255 / 10%);
+    }
+  }
+
+  /* `cover`, filling the tile: a pad is recognised by its picture, and a picture with a margin of
+     dead surface around it reads as a thumbnail of a pad rather than as the pad. Core's own line
+     art is square, so nothing is cropped there; a GM's own art of another ratio loses its edges
+     rather than floating in a box. */
+  .ac-pad-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    /* An icon is furniture, not a photograph: dropping it slightly below full white keeps the
+       playing ring and the accent stripe as the brightest things on the tile. */
+    opacity: 0.92;
+    pointer-events: none;
+  }
+
+  /* The random-interval badge, showing the interval a pad or a layer fires around. The pill is
+     shared by both surfaces; only the pad's placement is special, so only that part is under
+     .ac-pad-badge. Splitting them is not cosmetic — the pad's badge is absolutely
+     positioned, and an absolutely positioned badge in the mixer row would leave its own cell and
+     hang off whichever ancestor happened to be positioned. */
+  .ac-badge {
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgb(0 0 0 / 55%);
+    color: var(--ac-text);
+    font-size: var(--font-size-11);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* On a pad it sits in the one free corner, on the same translucent plate the corner buttons use
+     so it stays readable over artwork. */
+  /* Bottom-left, which is why the pad's controls all live on the other three corners: this one is
+     spoken for whenever a pad fires on a random interval. */
+  .ac-pad-badge {
+    position: absolute;
+    z-index: 1;
+    bottom: 4px;
+    left: 4px;
+  }
+
+  /* The corner controls: grip, add-to-library, and the four in the right-hand column.
+
+     The three geometry declarations are all load-bearing. `width`/`height` alone left these
+     rectangles — core sizes a <button> from --input-height and its own padding, and an absolutely
+     positioned element still honours a min-height it inherits from that — so the box is pinned
+     from both directions: the flex centring gives the glyph nothing to stretch, and the explicit
+     min/max pair is what actually overrides core rather than merely asking.
+
+     Only appearance and size are shared. Where each one sits is its own business below, because
+     the column's members are laid out by the column and no longer carry offsets at all. */
+  .ac-pad-grip,
+  .ac-pad-cog,
+  .ac-pad-add-library,
+  .ac-pad-whisper,
+  .ac-pad-remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    min-width: 22px;
+    max-width: 22px;
+    height: 22px;
+    min-height: 22px;
+    max-height: 22px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: rgb(0 0 0 / 45%);
+    color: var(--ac-text);
+    font-size: var(--font-size-11);
+    line-height: 1;
+    cursor: pointer;
+    /* Always visible, same rule .ac-row-action follows. The translucent black plate is what keeps
+       them legible over any pad accent colour without needing a hover to introduce them. */
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease;
+
+    /* Gold on a near-solid plate, which is the same two-part answer .ac-row-action gives: over pad
+       artwork a plate that only deepens is barely a change, so the glyph moves too. */
+    &:hover {
+      background: rgb(0 0 0 / 80%);
+      color: var(--ac-accent);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--ac-focus);
+      outline-offset: 1px;
+    }
+  }
+
+  /* Top-left, which is where a handle is looked for. It is also why "add to library" moved along
+     the top edge rather than keeping this corner: that button appears only on a pad whose file is
+     uncatalogued, and a handle that moved depending on the pad under the pointer is not a handle. */
+  .ac-pad-grip {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    left: 4px;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  /* The right-hand column, top to bottom: send, configure, remove.
+
+     One positioned box that distributes its own children, rather than each button carrying a
+     hardcoded top. `space-between` between a fixed top and bottom means the buttons sit flush at
+     the 96px minimum and gain real gaps as #fitPadGrid grows the tile, which at the default window
+     it always does (102px measured). Adding a fourth would need no arithmetic.
+
+     "Send to one player" takes the top corner because that is the one a pointer reaches first, and
+     Remove keeps the bottom: it is deliberately in the far corner, away from everything that makes
+     noise. */
+  .ac-pad-column {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    right: 4px;
+    bottom: 4px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  /* The top row rather than the right-hand column: 4px edge + 22px button + 4px gap puts it
+     immediately left of Send. It only appears on a pad whose file is uncatalogued, so it stays out
+     of the column — a control that came and went inside a stack would shift every button under it
+     depending on the pad the pointer is over, which is the thing the grip comment above warns
+     about. */
+  .ac-pad-add-library {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    right: 30px;
+  }
+
+  /* Where the dragged pad would land. A bar on the leading edge rather than the entry list's
+     top/bottom rule, because the grid flows left to right — and on ::before, since ::after is
+     already the playing ring. */
+  .ac-pad.drag-over-before::before,
+  .ac-pad.drag-over-after::before {
+    content: "";
+    position: absolute;
+    z-index: 3;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--ac-accent);
+    pointer-events: none;
+  }
+
+  .ac-pad.drag-over-before::before {
+    left: 0;
+  }
+
+  .ac-pad.drag-over-after::before {
+    right: 0;
+  }
+
+  /* --- Ambience section --------------------------------------------------- */
+
+  /* Same left-list/right-detail shell as Playlists and Soundboard — .ac-container-list and
+     .ac-container-card are shared verbatim; only the detail pane differs, a mixing desk instead of
+     an ordered list or a grid. */
+  .ac-ambience-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ac-ambience-detail {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .ac-layer-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  /* A grid, not a flex row. A mixing desk is read down its columns — is that fader higher than
+     this one, is that layer looping — and with flex every cell's width came from its own content,
+     so a long name pushed the fader right, a random-interval badge pushed the buttons left, and no two
+     rows lined up. Every track is fixed except the name, which takes what is left and truncates;
+     that is what makes the faders one column and the buttons one right-hand edge. */
+  .ac-layer {
+    display: grid;
+    /* Four fixed tracks and a hairline: name, fader, channel, the divider, the buttons. The badge
+       track that used to sit between the channel and the buttons is gone — it was empty on every
+       layer without a random interval, which is most of them, and an empty reserved track is
+       just a hole. The name absorbs what that freed. */
+    grid-template-columns: minmax(0, 1fr) 200px 26px 1px auto;
+    align-items: center;
+    gap: 8px;
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    background: var(--ac-surface-0);
+
+    &:hover {
+      background: var(--ac-surface-2);
+    }
+
+    /* Playing is also carried by the play button elsewhere in the console — this tint is a
+       reinforcement, not the only signal, same rule the playlist entry list follows. */
+    &.playing {
+      background: var(--ac-surface-2);
+    }
+  }
+
+  /* The name and, when there is one, the random-interval badge beside it. */
+  .ac-layer-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* min-width:0 is what lets a flex item shrink below its text's width; without it the ellipsis
+     never engages and the name pushes the whole row wider instead. */
+  .ac-layer-name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-size: var(--font-size-13);
+  }
+
+  /* Never shrinks: the interval is a number, and half of one is not a shorter label, it is a
+     wrong one. The name truncates instead. */
+  .ac-layer-badge {
+    flex: 0 0 auto;
+  }
+
+  .ac-layer-volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    color: var(--ac-text-dim);
+
+    & input[type="range"] {
+      flex: 1;
+      min-width: 0;
+      accent-color: var(--ac-accent);
+      cursor: pointer;
+    }
+  }
+
+  /* The type chip, or — for a layer with no library row — the button that gives it one. Both are
+     centred in a track of their own so the chip's own width ("music" against "sfx") cannot move
+     anything to its right. */
+  .ac-layer-type {
+    display: flex;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  /* The channel, as the same glyph the Library's own column uses. Read-only here: a layer already
+     in a container plays on the channel it was created with, so this reports rather than offers —
+     and it sits one track away from three real buttons drawn at the same dim, so it has to stop
+     looking like a fourth. Smaller and quieter than they are, which is the difference between an
+     annotation and a control. Still ~4.8:1 on the hover surface, well past the 3:1 a non-text
+     glyph owes, and it carries both a tooltip and an accessible name. */
+  .ac-layer-channel {
+    font-size: var(--font-size-12);
+    color: var(--ac-text-dim);
+    opacity: 0.8;
+  }
+
+  /* The hairline between what the row reports and what it does. A track of its own rather than a
+     border on a neighbour, so the grid's own 8px gap sits on both sides of it. */
+  .ac-layer-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--ac-border);
+  }
+
+  .ac-layer-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* Like .ac-row-action, these stay visible without a hover: whether a layer is looping or on a
+     random-interval timer is state the GM needs to read at a glance, not only on approach. */
+  .ac-layer-action {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: transparent;
+    color: var(--ac-text-dim);
+    cursor: pointer;
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-3);
+      color: var(--ac-text);
+    }
+
+    /* The random-interval badge appears alongside its button and a looping layer keeps repeating —
+       colour reinforces, it is never the only signal. */
+    &.active {
+      color: var(--ac-accent);
+    }
+  }
+
+  /* --- Transport bar ---------------------------------------------------- */
+
+  /* Spans the rail as well as the section: it is the one part of the window the GM's eye returns
+     to constantly, and it must never move. Fixed height, and every element inside it is sized so
+     that swapping a play icon for a pause icon or a short title for a long one cannot reflow it. */
+  .ac-transport {
+    display: flex;
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-items: center;
+    gap: var(--ac-gap);
+    box-sizing: border-box;
+    /* 56px before the progress bar became a 14px-tall seek control (it was a 4px read-only
+       strip); the extra 8px is that difference, so title, subtitle and bar keep the same breathing
+       room they had. */
+    height: 64px;
+    padding: 0 var(--ac-gap);
+    /* Lighter than --ac-border, which everything else in the window uses. This one line separates
+       the transport from the whole rest of the console rather than one panel from its neighbour,
+       so it is the one edge that should read at a glance. */
+    border-top: 1px solid color-mix(in oklab, var(--ac-border) 55%, var(--ac-text-dim));
+    background: var(--ac-surface-1);
+
+    /* base.css's .ac-sep stretches to its row. This row is 64px tall against ~28px of content, so
+       a full-height rule would read as a column edge rather than as a divider between controls. */
+    & > .ac-sep,
+    & .ac-transport-right > .ac-sep {
+      align-self: center;
+      height: 26px;
+    }
+  }
+
+  .ac-transport-controls {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+
+  .ac-transport-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: transparent;
+    color: var(--ac-text);
+    font-size: var(--font-size-14);
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover:not(:disabled) {
+      background: var(--ac-surface-3);
+    }
+
+    /* Disabled controls stay in place and stay readable — a bar that loses buttons when nothing
+       is playing is a bar that moves under the pointer. */
+    &:disabled {
+      color: var(--ac-text-dim);
+      opacity: 0.5;
+      cursor: default;
+    }
+
+    /* Repeat on: the accent colour plus a "1" on the glyph, so the state is not colour alone. */
+    &.ac-transport-repeat {
+      position: relative;
+
+      &.active {
+        color: var(--ac-accent);
+
+        &::after {
+          content: "1";
+          position: absolute;
+          right: 5px;
+          bottom: 4px;
+          font-size: var(--font-size-10);
+          font-weight: 700;
+          line-height: 1;
+        }
+      }
+    }
+
+    &.ac-transport-primary {
+      background: var(--ac-surface-2);
+
+      &:hover:not(:disabled) {
+        background: var(--ac-surface-3);
+      }
+    }
+  }
+
+  .ac-transport-now {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 0 6px;
+  }
+
+  .ac-transport-title,
+  .ac-transport-subtitle {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ac-transport-title {
+    font-size: var(--font-size-13);
+    font-weight: 700;
+  }
+
+  .ac-transport-subtitle {
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    min-height: 1em;
+  }
+
+  /* Seekable (console-base.js #onProgressPointerDown). The track a GM reads stays 4px, but the
+     control itself is 14px tall so there is something to actually grab — a 4px pointer target is
+     a miss waiting to happen, and this one restarts a track at the table. The track is drawn
+     inside that padding as ::before rather than by making the bar itself taller. */
+  .ac-progress {
+    position: relative;
+    height: 14px;
+    padding: 5px 0;
+    cursor: pointer;
+    /* Without this a drag on a touchscreen or precision trackpad scrolls the section instead of
+       moving the playhead, because the browser claims the gesture before pointermove fires. */
+    touch-action: none;
+
+    &::before {
+      content: "";
+      display: block;
+      height: 4px;
+      border-radius: 999px;
+      background: var(--ac-surface-3);
+    }
+
+    /* Nothing loaded, or a duration Foundry has not resolved yet: there is no position to seek
+       to, so the bar stops offering one rather than accepting a drag that goes nowhere. */
+    &[aria-disabled="true"] {
+      cursor: default;
+    }
+
+    &:focus-visible {
+      border-radius: var(--ac-radius);
+      outline: 2px solid var(--ac-focus);
+      outline-offset: 2px;
+    }
+  }
+
+  .ac-progress-fill {
+    position: absolute;
+    top: 5px;
+    left: 0;
+    width: 0;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--ac-accent);
+  }
+
+  /* The grab handle. Rides the fill's right edge — console-base.js writes the same percentage to
+     both — so it is always exactly at the playhead. It grows on hover, focus and during a drag so
+     the thing under the pointer is visibly the thing being moved. */
+  .ac-progress-thumb {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 11px;
+    height: 11px;
+    margin-left: -5.5px;
+    border-radius: 999px;
+    background: var(--ac-text);
+    transform: translateY(-50%);
+    /* The bar itself owns the pointer, including the capture during a drag; a handle that took
+       its own events would break the capture the moment the pointer left it. */
+    pointer-events: none;
+    transition: transform var(--ac-motion) ease;
+  }
+
+  .ac-progress:hover .ac-progress-thumb,
+  .ac-progress:focus-visible .ac-progress-thumb,
+  .ac-progress.seeking .ac-progress-thumb {
+    transform: translateY(-50%) scale(1.3);
+  }
+
+  /* A handle on a bar with nothing behind it would imply a position that does not exist. */
+  .ac-progress[aria-disabled="true"] .ac-progress-thumb {
+    display: none;
+  }
+
+  .ac-transport-right {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--ac-gap);
+  }
+
+  /* Idle shows the em-dash placeholder rather than 0:00 / 0:00, which would read as a track
+     sitting at the start. The min-width holds the same box either way, so nothing to its right
+     moves when playback begins — tabular figures alone only fix the digits, not the switch from
+     placeholder to real times. */
+  .ac-transport-time {
+    min-width: 84px;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    /* Tabular figures so the elapsed time ticking over cannot nudge the volume slider sideways. */
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* Nothing playing left this looking broken rather than idle: the slider sat at 0 with no painted
+     track, so all that showed was a lone thumb pinned to the left of a hairline. Core's own
+     --range-* variables are what fix it — the same route dialogs.css takes — because they paint a
+     real track at any value, disabled included. Restyling through them keeps core's geometry and
+     focus ring; only the colours are ours. */
+  .ac-volume {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ac-text-dim);
+
+    & input[type="range"] {
+      --range-track-color: var(--ac-surface-3);
+      --range-track-border-color: var(--ac-border);
+      --range-thumb-background-color: var(--ac-accent);
+      --range-thumb-border-color: var(--ac-accent);
+      width: 96px;
+      cursor: pointer;
+
+      /* Dimmed, not faded out. Core drops a disabled input to opacity 0.33, which on these
+         surfaces left the track invisible and the thumb a ghost — that faded speck beside a
+         hairline is exactly what read as broken rather than idle. Enough opacity to keep the
+         track drawn, and a grey thumb rather than the gold one, so it still says "unavailable"
+         without colour being the only thing saying it. */
+      &:disabled {
+        --range-thumb-background-color: var(--ac-text-dim);
+        --range-thumb-border-color: var(--ac-text-dim);
+        opacity: 0.7;
+        cursor: default;
+      }
+    }
+  }
+
+  /* The speaker glyph beside it, muted to match the disabled slider so the pair reads as one idle
+     control rather than a bright icon next to a grey one. */
+  .ac-volume:has(input:disabled) {
+    color: color-mix(in oklab, var(--ac-text-dim) 60%, var(--ac-surface-1));
+  }
+
+  /* The interlock indicator. Icon, word and fill all change together: state is never carried by
+     colour alone, and this is the one control where getting that wrong spoils a reveal. */
+  .ac-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--ac-border);
+    /* --ac-radius, not a pill: 999px is reserved for badges that are meant to read as attached
+       markers (the Missing chip, the tag count). This is a button — it is clicked, it toggles —
+       so it wears the same corner as every other button in the module. */
+    border-radius: var(--ac-radius);
+    background: transparent;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-3);
+      color: var(--ac-text);
+    }
+
+    &.live {
+      border-color: var(--ac-live);
+      background: var(--ac-live);
+      color: var(--ac-surface-0);
+      font-weight: 700;
+    }
+  }
+
+  /* --- Automation section -------------------------------------------------- */
+
+  /* Rules above, the activity log pinned below them. The list scrolls and the log does not: the
+     log is a fixed few lines whose job is to be glanceable without moving, and letting it grow
+     would push the rules a GM is editing off the top of the section. */
+  .ac-automation-body {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* The arm switch and the rule count, sharing the left half of the section header where every
+     other section puts its filters. */
+  .ac-automation-arm {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--ac-gap);
+    min-width: 0;
+  }
+
+  /* Armed reads as accent rather than as --ac-live, which belongs to the transport's broadcast
+     indicator alone. Two red states in one window would be two things to learn; the accent is
+     what every other pressed control in this module already uses. */
+  .ac-arm-button.active {
+    border-color: var(--ac-accent);
+    background: var(--ac-accent);
+    color: var(--ac-accent-ink);
+    font-weight: 700;
+  }
+
+  .ac-automation-notice {
+    margin: 0;
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+  }
+
+  .ac-rule-list {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  /* Same row shape as .ac-entry, deliberately: a list of things with a handle, a state control and
+     a trailing action cluster is a pattern this window already has, and a second one would be a
+     second thing to look at. It is not the same class because the states differ — a rule is
+     enabled or broken, never playing or paused. */
+  .ac-rule {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    border-top: 2px solid transparent;
+    background: var(--ac-surface-0);
+
+    &:hover {
+      background: var(--ac-surface-2);
+    }
+
+    /* Dimmed, not hidden: a disabled rule is still one the GM wrote and still has to be findable
+       to switch back on. */
+    &.disabled {
+      color: var(--ac-text-dim);
+      opacity: 0.6;
+    }
+
+    &.broken {
+      border-left: 3px solid var(--ac-live);
+      padding-left: calc(var(--ac-gap) - 3px);
+    }
+
+    &.drag-over-before {
+      border-top-color: var(--ac-accent);
+    }
+
+    &.drag-over-after {
+      border-bottom: 2px solid var(--ac-accent);
+    }
+  }
+
+  .ac-rule-handle {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    cursor: grab;
+  }
+
+  .ac-rule-toggle.ac-row-action[aria-pressed="true"] {
+    color: var(--ac-accent);
+  }
+
+  /* Trigger, arrow and action on one line. The action is the half allowed to ellipsis: a container
+     name is arbitrary length and the trigger is drawn from a fixed vocabulary, so truncating the
+     unknown one keeps the sentence readable either way. */
+  .ac-rule-text {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .ac-rule-trigger {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  /* Lit while the condition holds. Only state rules draw one (automation.hbs), so an unlit dot
+     always means "not right now" rather than "this kind of rule has no state". */
+  .ac-rule-dot {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--ac-border);
+    border-radius: 999px;
+    background: transparent;
+
+    &.active {
+      border-color: var(--ac-accent);
+      background: var(--ac-accent);
+    }
+  }
+
+  .ac-rule-arrow {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+  }
+
+  .ac-rule-action {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ac-rule-warning {
+    flex: 0 0 auto;
+    color: var(--ac-live);
+  }
+
+  /* --- Automation log ----------------------------------------------------- */
+
+  .ac-automation-log {
+    display: flex;
+    flex: 0 0 auto;
+    flex-direction: column;
+    max-height: 30%;
+    border-top: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+  }
+
+  .ac-automation-log-heading {
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 6px var(--ac-gap);
+    border: none;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .ac-log-list {
+    flex: 1;
+    margin: 0;
+    padding: 0 0 6px;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .ac-log-entry {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px var(--ac-gap);
+    font-size: var(--font-size-11);
+
+    &.failed {
+      color: var(--ac-live);
+    }
+  }
+
+  /* Tabular figures so the timestamps form a column instead of drifting with their own digits —
+     the same reason .ac-entry-duration uses them. */
+  .ac-log-time {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .ac-log-how {
+    flex: 0 0 auto;
+    color: var(--ac-text-dim);
+  }
+
+  .ac-log-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ac-log-outcome {
+    flex: 0 0 auto;
+    font-weight: 600;
+  }
+
+  /* --- Popout --------------------------------------------------------- */
+
+  /* One container's detail pane in a window of its own (console-normal.js openPopout). The same
+     class and the same section part render it, so everything above applies unchanged; only the
+     shell differs. The rail and the transport are never rendered, so the two-column grid collapses
+     to the one cell the section fills — and the section's own `grid-column: 2` has to follow, or
+     it would sit in an implicit second column beside an empty first. The list/detail split inside
+     the section is gone from the template, so the detail pane already has the whole width. */
+  &.ac-popout {
+    .window-content {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(0, 1fr);
+    }
+
+    .ac-section {
+      grid-column: 1;
+    }
+  }
+}

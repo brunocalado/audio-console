@@ -1,0 +1,83 @@
+{{!-- The tag vocabulary. Tens to low hundreds of rows, not thousands, so ordinary Handlebars —
+      the virtual window the library table needs would be cost with no benefit here. --}}
+<div class="ac-tags-manager">
+
+    <header class="ac-tags-manager-header">
+        <div class="ac-tag-add">
+            <input type="text" data-new-tag maxlength="{{maxLength}}" autocomplete="off"
+                   placeholder="{{localize "AUDIO_CONSOLE.TagManager.AddPlaceholder"}}"
+                   aria-label="{{localize "AUDIO_CONSOLE.TagManager.AddLabel"}}">
+            <button type="button" class="ac-button" data-action="addTag">
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.TagManager.Actions.Add"}}</span>
+            </button>
+        </div>
+        <search class="ac-search">
+            <i class="fa-solid fa-magnifying-glass" inert></i>
+            <input type="search" data-tag-filter value="{{filter}}" autocomplete="off"
+                   placeholder="{{localize "AUDIO_CONSOLE.TagManager.FilterPlaceholder"}}"
+                   aria-label="{{localize "AUDIO_CONSOLE.TagManager.FilterLabel"}}">
+        </search>
+    </header>
+
+    {{!-- One list for every row's group field. A free-text field with suggestions, not a select:
+          no list of permitted groups exists anywhere — a pack coins its own, and so may the GM —
+          so the datalist is a convenience against misspelling one, never a constraint. --}}
+    <datalist id="ac-tag-groups">
+        {{#each groups as |group|}}<option value="{{group}}"></option>{{/each}}
+    </datalist>
+
+    <ul class="ac-tag-rows" role="list">
+        {{#each tags as |row|}}
+        <li class="ac-tag-row{{#if row.editing}} editing{{/if}}">
+            {{#if row.editing}}
+            {{!-- Renamed in place. The buttons swap with the field so the row never offers "rename"
+                  and "confirm rename" at the same time. --}}
+            <input type="text" class="ac-tag-row-input" data-rename-input value="{{row.draft}}"
+                   maxlength="{{../maxLength}}" autocomplete="off"
+                   aria-label="{{localize "AUDIO_CONSOLE.TagManager.Actions.Rename"}}">
+            <button type="button" class="ac-row-action" data-action="commitRename"
+                    aria-label="{{localize "AUDIO_CONSOLE.TagManager.Actions.Rename"}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.TagManager.Actions.RenameHint"}}">
+                <i class="fa-solid fa-check" inert></i>
+            </button>
+            <button type="button" class="ac-row-action" data-action="cancelRename"
+                    aria-label="{{localize "AUDIO_CONSOLE.TagManager.Actions.Cancel"}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.TagManager.Actions.Cancel"}}">
+                <i class="fa-solid fa-xmark" inert></i>
+            </button>
+            {{else}}
+            <span class="ac-tag-row-name" title="{{row.tag}}">{{row.tag}}</span>
+            {{!-- The facet this tag belongs to. Tags sharing a group are alternatives in the
+                  console's filter panel (they widen the result); a tag left blank is a group of
+                  one and narrows on its own, which is how every tag behaved before groups. --}}
+            <input type="text" class="ac-tag-row-group" data-group-input data-tag="{{row.tag}}"
+                   value="{{row.group}}" list="ac-tag-groups" maxlength="{{../maxLength}}"
+                   autocomplete="off" placeholder="{{localize "AUDIO_CONSOLE.TagManager.GroupPlaceholder"}}"
+                   aria-label="{{localize "AUDIO_CONSOLE.TagManager.GroupLabel"}}">
+            {{!-- A count of 0 is a real state, not a bug: a tag coined ahead of use, or one whose
+                  last track was retagged. It reads differently so it can be spotted and cleaned
+                  up. --}}
+            <span class="ac-tag-row-count{{#unless row.count}} unused{{/unless}}">
+                {{localize "AUDIO_CONSOLE.TagManager.Uses" count=row.count}}
+            </span>
+            <button type="button" class="ac-row-action" data-action="renameTag" data-tag="{{row.tag}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.TagManager.Actions.Rename"}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.TagManager.Actions.RenameHint"}}">
+                <i class="fa-solid fa-pen" inert></i>
+            </button>
+            <button type="button" class="ac-row-action" data-action="deleteTag" data-tag="{{row.tag}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.TagManager.Actions.Delete"}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.TagManager.Actions.DeleteHint"}}">
+                <i class="fa-solid fa-trash" inert></i>
+            </button>
+            {{/if}}
+        </li>
+        {{else}}
+        <li class="ac-empty-hint">
+            {{#if filtered}}{{localize "AUDIO_CONSOLE.TagManager.NoMatches"}}
+            {{else}}{{localize "AUDIO_CONSOLE.TagManager.Empty"}}{{/if}}
+        </li>
+        {{/each}}
+    </ul>
+</div>

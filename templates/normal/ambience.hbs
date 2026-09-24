@@ -1,0 +1,186 @@
+{{!-- Left: the ambience containers (like Playlists/Soundboard). Right: the selected one's mixing
+      desk — one row per layer with a live volume slider, loop, mute and random-interval timing. Tens of
+      layers, not thousands, so ordinary Handlebars — no virtual window here. --}}
+<section class="tab ac-section ac-ambience {{tab.cssClass}}" data-group="{{tab.group}}" data-tab="{{tab.id}}">
+
+    {{!-- No section header in a popout — Play/Stop moves to the title bar, as in playlists.hbs. --}}
+    {{#unless popout}}
+    <header class="ac-section-header">
+        <div class="ac-section-actions">
+            <button type="button" class="ac-button" data-action="createContainer" data-section="ambiences">
+                <i class="fa-solid fa-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Ambience.Actions.Create"}}</span>
+            </button>
+        </div>
+        {{!-- Shares the header row with "New ambience" rather than opening a second row in the
+              detail pane below — same layout as Playlists. --}}
+        {{#if selectedAmbience}}
+        <div class="ac-container-detail-controls">
+            {{!-- Both rendered, one hidden — see playlists.hbs. --}}
+            <button type="button" class="ac-button" data-action="stopContainer" data-section="ambiences"
+                    data-playback-toggle="stop"{{#unless selectedAmbience.playing}} hidden{{/unless}}>
+                <i class="fa-solid fa-stop" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Ambience.Actions.StopAll"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="playContainer" data-section="ambiences"
+                    data-playback-toggle="play"{{#if selectedAmbience.playing}} hidden{{/if}}>
+                <i class="fa-solid fa-play" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Ambience.Actions.PlayAll"}}</span>
+            </button>
+            <label class="ac-fade-field">
+                <span inert>{{localize "AUDIO_CONSOLE.Playlists.FadeLabel"}}</span>
+                <input type="number" min="0" step="100" data-ambience-fade data-section="ambiences" value="{{selectedAmbience.fade}}">
+            </label>
+            <button type="button" class="ac-button" data-action="addFileToContainer" data-section="ambiences">
+                <i class="fa-solid fa-file-circle-plus" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Library.Actions.Add"}}</span>
+            </button>
+            <button type="button" class="ac-button" data-action="addFromLibrary" data-section="ambiences">
+                <i class="fa-solid fa-book" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Containers.AddFromLibrary"}}</span>
+            </button>
+            {{!-- Acts on whichever container is selected, like Rename and Delete beside it — the
+                  card list carries no per-row heart, so pinning is one deliberate act on the thing
+                  already open rather than a button repeated down the list. --}}
+            <button type="button" class="ac-icon-button ac-favorite-toggle{{#if selectedAmbience.favorite}} active{{/if}}"
+                    data-action="toggleFavorite" data-section="ambiences"
+                    aria-pressed="{{#if selectedAmbience.favorite}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Favorites.Toggle"}}">
+                <i class="{{#if selectedAmbience.favorite}}fa-solid{{else}}fa-regular{{/if}} fa-heart" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="popOut" data-section="ambiences"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Containers.PopOut"}}">
+                <i class="fa-solid fa-up-right-from-square" inert></i>
+            </button>
+            <button type="button" class="ac-icon-button" data-action="deleteContainer" data-section="ambiences"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Delete"}}">
+                <i class="fa-solid fa-trash" inert></i>
+            </button>
+        </div>
+        {{/if}}
+    </header>
+    {{/unless}}
+
+    <div class="ac-ambience-body">
+        {{#unless popout}}
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Ambience.ListLabel"}}">
+            {{#each ambiences as |ambience|}}
+            {{!-- Same single-line card + inline rename as Playlists: the layer count read as
+                  noise once the card was selectable by name alone, and rename only targets
+                  "whichever ambience is selected" (#onRenameContainer), so only the active card
+                  gets a pencil. --}}
+            <div class="ac-container-card-wrap{{#if ambience.active}} active{{/if}}{{#if ambience.editing}} editing{{/if}}" role="listitem">
+                {{#if ambience.editing}}
+                <input type="text" class="ac-container-rename-input" data-rename-input value="{{ambience.draft}}"
+                       autocomplete="off" aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                <button type="button" class="ac-row-action" data-action="commitRenameContainer" data-section="ambiences"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.ConfirmRename"}}">
+                    <i class="fa-solid fa-check" inert></i>
+                </button>
+                <button type="button" class="ac-row-action" data-action="cancelRenameContainer"
+                        aria-label="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Containers.CancelRename"}}">
+                    <i class="fa-solid fa-xmark" inert></i>
+                </button>
+                {{else}}
+                <button type="button" class="ac-container-card{{#if ambience.active}} active{{/if}}"
+                        data-action="selectContainer" data-section="ambiences" data-container-id="{{ambience.id}}">
+                    <span class="ac-container-name" title="{{ambience.name}}">{{ambience.name}}</span>
+                    {{#if ambience.playing}}<i class="fa-solid fa-volume-high ac-container-playing" inert></i>{{/if}}
+                </button>
+                {{#if ambience.active}}
+                <button type="button" class="ac-icon-button ac-container-rename" data-action="renameContainer" data-section="ambiences"
+                        data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}"
+                        aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.Rename"}}">
+                    <i class="fa-solid fa-pen" inert></i>
+                </button>
+                {{/if}}
+                {{/if}}
+            </div>
+            {{else}}
+            <p class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Ambience.NoneYet"}}</p>
+            {{/each}}
+        </div>
+        {{/unless}}
+
+        <div class="ac-ambience-detail">
+            {{#if selectedAmbience}}
+            <ul class="ac-layer-list" data-layer-list data-container-id="{{selectedAmbience.id}}" aria-label="{{localize "AUDIO_CONSOLE.Ambience.LayerListLabel"}}">
+                {{#each selectedAmbience.layers as |layer|}}
+                {{!-- A mixing desk reads down its columns, so every cell is a fixed grid track and
+                      only the name absorbs the spare width (console-normal.css .ac-layer). What
+                      varies per layer — the name's length, whether it is in the library, whether it
+                      has a random interval — varies inside its own cell and never moves the one
+                      beside it. --}}
+                <li class="ac-layer{{#if layer.playing}} playing{{/if}}" data-sound-id="{{layer.id}}">
+                    {{!-- The random-interval badge rides with the name rather than owning a track of its
+                          own. It is the only thing on this row that appears and disappears, and a
+                          reserved track for it sat empty on every other layer — a hole between the
+                          channel and the buttons. In here it eats the name's spare width instead,
+                          so nothing to its right ever moves. --}}
+                    <div class="ac-layer-title">
+                        <span class="ac-layer-name" title="{{layer.name}}">{{layer.name}}</span>
+                        {{#if layer.randomLabel}}<span class="ac-badge ac-layer-badge"{{#if layer.randomOnStart}} data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.OnStartBadge"}}" aria-label="{{layer.randomLabel}} — {{localize "AUDIO_CONSOLE.Ambience.OnStartBadge"}}"{{/if}}>{{#if layer.randomOnStart}}<i class="fa-solid fa-hourglass-start" inert></i> {{/if}}{{layer.randomLabel}}</span>{{/if}}
+                    </div>
+
+                    <div class="ac-layer-volume">
+                        <i class="fa-solid fa-volume-low" inert></i>
+                        {{!-- The slider position is not the gain — same AudioHelper mapping the transport bar
+                              and pad config use. --}}
+                        <input type="range" min="0" max="1" step="0.01" value="{{layer.volumeInput}}"
+                               data-entry-volume data-sound-id="{{layer.id}}"
+                               aria-label="{{localize "AUDIO_CONSOLE.Ambience.Actions.Volume"}}: {{layer.name}}"
+                               aria-valuetext="{{layer.volumeLabel}}">
+                    </div>
+
+                    <div class="ac-layer-type">
+                        {{#if layer.hasLibraryEntry}}
+                        {{#if layer.channelIcon}}<i class="fa-solid {{layer.channelIcon}} ac-layer-channel" aria-label="{{layer.channelLabel}}" data-tooltip="{{layer.channelLabel}}"></i>{{/if}}
+                        {{else}}
+                        <button type="button" class="ac-layer-action" data-action="addEntryToLibrary" data-section="ambiences" data-sound-id="{{layer.id}}"
+                                aria-label="{{localize "AUDIO_CONSOLE.Playlists.Actions.AddToLibrary"}}"
+                                data-tooltip="{{localize "AUDIO_CONSOLE.Playlists.Actions.AddToLibrary"}}">
+                            <i class="fa-solid fa-plus" inert></i>
+                        </button>
+                        {{/if}}
+                    </div>
+
+                    {{!-- Divides what the row *reports* (channel, level) from what it *does*
+                          (loop, random interval, remove). Decoration only — the channel glyph beside it
+                          already carries the accessible name. --}}
+                    <span class="ac-layer-sep" aria-hidden="true"></span>
+
+                    <div class="ac-layer-actions">
+                        <button type="button" class="ac-layer-action{{#if layer.loop}} active{{/if}}"
+                                data-action="toggleLayerLoop" data-sound-id="{{layer.id}}"
+                                aria-label="{{localize "AUDIO_CONSOLE.Ambience.Actions.Loop"}}" aria-pressed="{{layer.loop}}"
+                                data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.Actions.Loop"}}">
+                            <i class="fa-solid fa-repeat" inert></i>
+                        </button>
+                        <button type="button" class="ac-layer-action{{#if layer.randomLabel}} active{{/if}}"
+                                data-action="configureLayerRandom" data-sound-id="{{layer.id}}"
+                                aria-label="{{localize "AUDIO_CONSOLE.Ambience.Actions.RandomInterval"}}"
+                                data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.Actions.RandomInterval"}}">
+                            <i class="fa-solid fa-dice" inert></i>
+                        </button>
+                        <button type="button" class="ac-layer-action" data-action="removeContainerEntry" data-section="ambiences" data-sound-id="{{layer.id}}"
+                                aria-label="{{localize "AUDIO_CONSOLE.Ambience.Actions.RemoveLayer"}}"
+                                data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.Actions.RemoveLayer"}}">
+                            <i class="fa-solid fa-xmark" inert></i>
+                        </button>
+                    </div>
+                </li>
+                {{else}}
+                <li class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Ambience.EmptyLayers"}}</li>
+                {{/each}}
+            </ul>
+            {{else}}
+            <p class="ac-empty-hint ac-container-detail-empty">{{localize "AUDIO_CONSOLE.Ambience.SelectHint"}}</p>
+            {{/if}}
+        </div>
+    </div>
+</section>

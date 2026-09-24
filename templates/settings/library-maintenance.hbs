@@ -1,0 +1,64 @@
+{{!-- Recovery and moving-installation tools for the shared library, reached from Foundry's own
+      Settings tab (game.settings.registerMenu in settings.js) rather than a toolbar button on the
+      Library tab — used rarely, by design, so they no longer sit next to the daily-use controls. --}}
+<div class="ac-settings-library-body">
+    <p class="ac-settings-intro">{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Intro"}}</p>
+
+    <section class="ac-settings-row">
+        <div class="ac-settings-row-text">
+            <h3>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Export.Title"}}</h3>
+            <p>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Export.Description"}}</p>
+        </div>
+        <button type="button" class="ac-button" data-action="exportLibrary">
+            <i class="fa-solid fa-download" inert></i>
+            <span inert>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Export.Submit"}}</span>
+        </button>
+    </section>
+
+    <section class="ac-settings-row">
+        <div class="ac-settings-row-text">
+            <h3>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Import.Title"}}</h3>
+            <p>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Import.Description"}}</p>
+        </div>
+        <button type="button" class="ac-button" data-action="importLibrary">
+            <i class="fa-solid fa-file-import" inert></i>
+            <span inert>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Import.Submit"}}</span>
+        </button>
+    </section>
+
+    <section class="ac-settings-row">
+        <div class="ac-settings-row-text">
+            <h3>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Consolidate.Title"}}</h3>
+            <p>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Consolidate.Description"}}</p>
+        </div>
+        <button type="button" class="ac-button" data-action="consolidateLibrary">
+            <i class="fa-solid fa-boxes-packing" inert></i>
+            <span inert>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Consolidate.Submit"}}</span>
+        </button>
+    </section>
+
+    {{!-- Content packs registered through the public API (docs/API.md). Their registration is
+          add-only on every load; this is the one place a newer pack version gets to overwrite. --}}
+    <section class="ac-settings-row ac-settings-packs">
+        <div class="ac-settings-row-text">
+            <h3>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Packs.Title"}}</h3>
+            <p>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Packs.Description"}}</p>
+            {{#if packs.length}}
+            <ul class="ac-settings-pack-list">
+                {{#each packs}}
+                <li class="ac-settings-pack">
+                    <span class="ac-settings-pack-name">{{name}}</span>
+                    <span class="ac-settings-pack-count">{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Packs.Count" count=containers}}</span>
+                    <button type="button" class="ac-button" data-action="syncPack" data-pack-id="{{id}}">
+                        <i class="fa-solid fa-rotate" inert></i>
+                        <span inert>{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Packs.Submit"}}</span>
+                    </button>
+                </li>
+                {{/each}}
+            </ul>
+            {{else}}
+            <p class="ac-settings-pack-empty">{{localize "AUDIO_CONSOLE.Settings.LibraryMaintenance.Packs.Empty"}}</p>
+            {{/if}}
+        </div>
+    </section>
+</div>

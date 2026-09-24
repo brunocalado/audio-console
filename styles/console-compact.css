@@ -1,0 +1,151 @@
+/*!
+ * Audio Console
+ * Copyright (c) 2026 https://github.com/brunocalado
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 3.
+ */
+
+/* Compact mode: a small frameless bar. Frameless means this never picks up core's own
+   `.application` rule (only added when window.frame is true, per v14.365's
+   _initializeApplicationOptions), so the positioning it would have supplied — position, z-index —
+   is restated here by hand. Tokens come from base.css; nothing here re-declares a colour. */
+
+.audio-console.audio-console-compact {
+  position: absolute;
+  z-index: var(--z-index-window);
+  /* 360px was sized for a bar that also held a playlist picker, a volume slider and the interlock
+     dot. With those gone the row is a grip, three buttons and a two-line readout, and the width
+     came down to match. Keep this and DEFAULT_OPTIONS.position.width in step — the frameless
+     window writes its own inline width from the latter. */
+  width: 300px;
+  height: 64px;
+  border: 1px solid var(--ac-border);
+  border-radius: var(--ac-radius);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+
+  .ac-compact-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 8px;
+  }
+
+  /* Idle dim (console-compact.js). The module's own class rather than core's `faded-ui` — see the
+     note on #scheduleFade for why a class that controls a whole window's opacity is not one to
+     borrow — but deliberately set to core's own numbers, so the bar dims like the hotbar and the
+     chat notifications beside it.
+
+     The delay is on the way OUT only: `opacity .5s .5s` waits half a second before dimming, while
+     the hover rule's `opacity .5s` brings it back at once. Anything that puts focus inside the bar
+     holds it lit too, so tabbing to a button never leaves the GM working against a dimmed bar. */
+  &.ac-idle {
+    opacity: 0.4;
+    transition: opacity 0.5s 0.5s;
+  }
+
+  &.ac-idle:hover,
+  &.ac-idle:focus-within {
+    opacity: 1;
+    transition: opacity 0.5s;
+  }
+
+  /* base.css's .ac-sep stretches to its row; this row is 64px tall against 28px of content, so a
+     full-height rule would read as a panel edge rather than as a divider. */
+  .ac-sep {
+    align-self: center;
+    height: 26px;
+  }
+
+  .ac-compact-handle {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    color: var(--ac-text-dim);
+    cursor: grab;
+
+    &.draggable:active {
+      cursor: grabbing;
+    }
+  }
+
+  .ac-compact-controls {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 2px;
+  }
+
+  /* Reuses the transport bar's own button look (console-normal.css) rather than redeclaring it —
+     both are the same `.ac-transport-button` class, just in a denser row. */
+  .ac-transport-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: var(--ac-radius);
+    background: transparent;
+    color: var(--ac-text);
+    cursor: pointer;
+    transition: background var(--ac-motion) ease;
+
+    &:hover {
+      background: var(--ac-surface-2);
+    }
+
+    &:disabled {
+      color: var(--ac-text-dim);
+      cursor: default;
+      background: transparent;
+    }
+
+    &.ac-transport-primary {
+      background: var(--ac-accent);
+      color: var(--ac-accent-ink);
+
+      &:hover {
+        background: var(--ac-accent);
+        opacity: 0.9;
+      }
+
+      &:disabled {
+        background: var(--ac-surface-2);
+        color: var(--ac-text-dim);
+        opacity: 1;
+      }
+    }
+  }
+
+  .ac-compact-now {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-width: 0;
+    gap: 1px;
+  }
+
+  /* The two readout lines. The title is what is playing and takes the emphasis the playlist
+     picker used to hold; the subtitle names where it came from. Both truncate rather than widen
+     the bar, whose width is fixed at 360px. */
+  .ac-compact-title {
+    overflow: hidden;
+    color: var(--ac-text);
+    font-size: var(--font-size-12);
+    font-weight: 700;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .ac-compact-subtitle {
+    overflow: hidden;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-11);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
