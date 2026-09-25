@@ -244,7 +244,10 @@
         "Whisper": "Send to One Player",
         "Duck": "Duck Music",
         "BoardColor": "Background Colour",
-        "DuckHint": "While a pad from this board plays, every client's music channel is lowered, and comes back when the pad ends. Nothing about your levels is changed."
+        "DuckHint": "While a pad from this board plays, every client's music channel is lowered, and comes back when the pad ends. Nothing about your levels is changed.",
+        "ViewList": "Show as List",
+        "ViewGrid": "Show as Grid",
+        "Configure": "Configure"
       },
       "Notify": {
         "MacroCreated": "Created the macro \"{name}\" and put it on the hotbar.",

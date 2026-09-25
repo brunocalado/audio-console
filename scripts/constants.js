@@ -72,7 +72,16 @@ export const FLAGS = {
   SOUND_PATH: "soundPath",    // Macro: the audio file it plays — the pad-to-hotbar dedupe key
   PACK: "pack",               // Playlist: which content module built it, via the public API
   DUCK: "duck",               // Playlist (soundboard): lower the music channel while a pad sounds
-  ACTIVE: "active"            // Playlist (ambience): switched on, whether or not a layer sounds right now
+  ACTIVE: "active",           // Playlist (ambience): switched on, whether or not a layer sounds right now
+  VIEW: "view"                // Playlist (soundboard): how its pads are laid out — PAD_VIEWS
+};
+
+// How a soundboard draws its pads. Per board, on the document (ContainerFlags.view), so a board's
+// popout draws the same way the console does. The grid is aimed at by picture; the list trades
+// that for a name that is read in full, for a GM who finds the tiles hard to tell apart.
+export const PAD_VIEWS = {
+  GRID: "grid",
+  LIST: "list"
 };
 
 // How far ducking pulls the music channel down while a pad from a ducking soundboard plays, as a

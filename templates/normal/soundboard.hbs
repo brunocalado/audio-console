@@ -32,6 +32,13 @@
             {{!-- Acts on whichever container is selected, like Rename and Delete beside it — the
                   card list carries no per-row heart, so pinning is one deliberate act on the thing
                   already open rather than a button repeated down the list. --}}
+            {{!-- Grid or list, per board (ContainerFlags.view). The icon shows the view the click
+                  switches TO, which is what the label names too. --}}
+            <button type="button" class="ac-icon-button" data-action="togglePadView" data-section="soundboards"
+                    data-tooltip="{{localize selectedSoundboard.viewToggleLabel}}"
+                    aria-label="{{localize selectedSoundboard.viewToggleLabel}}">
+                <i class="fa-solid {{#if selectedSoundboard.listView}}fa-grip{{else}}fa-list{{/if}}" inert></i>
+            </button>
             {{!-- Ducking: while a pad of this board plays, every client lowers its music channel
                   (audio/ducking.js). A toggle beside the other board-level controls, painted at the
                   click and confirmed by the flag write. --}}
@@ -121,7 +128,9 @@
                   grid itself and the pitch is a tile plus its gap. --}}
             {{!-- The board's background colour lives here, on the part the popout shares, so a
                   popped-out board carries it without anything of its own. --}}
-            <div class="ac-pad-scroll{{#if selectedSoundboard.color}} coloured{{/if}}" data-pad-scroll
+            {{!-- `list` is the board's view, on the scroller the popout shares, so a popped-out board
+                  is laid out the way the console lays it out. --}}
+            <div class="ac-pad-scroll{{#if selectedSoundboard.color}} coloured{{/if}}{{#if selectedSoundboard.listView}} list{{/if}}" data-pad-scroll
                  {{#if selectedSoundboard.color}}style="--ac-board-color: {{selectedSoundboard.color}};"{{/if}}>
                 <div class="ac-pad-spacer" data-pad-spacer>
                     <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}" data-pad-grid></div>

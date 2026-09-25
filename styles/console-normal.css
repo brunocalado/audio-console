@@ -978,11 +978,17 @@
 
   /* A board's background colour (ContainerFlags.color), as a tint over the window base rather than
      the raw pick: the pads keep their own surface on top of it, and a full-strength red or white
-     behind a grid of dark tiles would be the loudest thing in the window. 30% is enough for the
-     board to read as "the red one" at a glance. Same class-not-property reason as .ac-pad.coloured:
-     color-mix() against an unset custom property would tint every plain board transparent. */
+     behind a grid of dark tiles would be the loudest thing in the window. A flat 30% wash still
+     was — so it is a gradient now, a weaker tint at the top running down into near-black, which
+     keeps the board reading as "the red one" at a glance while the pads stay the brightest things
+     on it. The scroller's background does not scroll with its content, so the gradient spans the
+     visible pane rather than stretching over a thousand rows. Same class-not-property reason as
+     .ac-pad.coloured: color-mix() against an unset custom property would tint every plain board
+     transparent. */
   .ac-pad-scroll.coloured {
-    background: color-mix(in oklab, var(--ac-board-color) 30%, var(--ac-surface-0));
+    background: linear-gradient(to bottom,
+      color-mix(in oklab, var(--ac-board-color) 18%, var(--ac-surface-0)),
+      color-mix(in oklab, var(--ac-board-color) 5%, #000));
   }
 
   .ac-pad-spacer {
@@ -1275,6 +1281,122 @@
 
   .ac-pad.drag-over-after::before {
     right: 0;
+  }
+
+  /* --- Soundboard: list view ------------------------------------------------ */
+
+  /* PAD_VIEWS.LIST — the same .ac-pad element as the grid (console-normal.js #renderPadTiles), laid
+     out as a row: the icon at the head, the whole name in body-size text rather than on a band over
+     artwork, and the corner controls lined up at the end instead of floating. For a GM who finds
+     the tiles hard to read. The row height is pinned and read back by #fitPadGrid, because the
+     list is virtualised on a constant pitch exactly like the playlist rows. */
+  .ac-pad-scroll.list .ac-pad-grid {
+    --ac-pad-row-height: 44px;
+
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: var(--ac-pad-row-height);
+    gap: 4px;
+  }
+
+  /* The colour moves from the top stripe to the leading edge, which is where a list is scanned. */
+  .ac-pad-scroll.list .ac-pad {
+    align-items: center;
+    gap: 4px;
+    padding-right: 6px;
+    border-top: 1px solid var(--ac-border);
+    border-left: 4px solid var(--ac-pad-color, var(--ac-border));
+
+    &.coloured {
+      border-top-color: color-mix(in oklab, var(--ac-pad-color) 35%, var(--ac-border));
+      border-left-color: var(--ac-pad-color);
+    }
+
+    /* Top and bottom edges rather than left and right: a list flows down. */
+    &.drag-over-before::before,
+    &.drag-over-after::before {
+      top: auto;
+      bottom: auto;
+      left: 0;
+      right: 0;
+      width: auto;
+      height: 3px;
+    }
+
+    &.drag-over-before::before {
+      top: 0;
+    }
+
+    &.drag-over-after::before {
+      bottom: 0;
+    }
+  }
+
+  .ac-pad-scroll.list .ac-pad-fire {
+    align-items: center;
+    gap: 10px;
+    padding: 0 6px;
+    text-align: left;
+  }
+
+  .ac-pad-scroll.list .ac-pad-icon {
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: var(--ac-radius);
+  }
+
+  .ac-pad-scroll.list .ac-pad-name {
+    position: static;
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    font-size: var(--font-size-14);
+    text-align: left;
+  }
+
+  .ac-pad-scroll.list .ac-pad-badge {
+    position: static;
+    flex: 0 0 auto;
+  }
+
+  /* No plate in a row: there is no artwork under these to stay legible against, so they take the
+     .ac-row-action look — dim at rest, brighter under the pointer — and sit in the row's flow. */
+  .ac-pad-scroll.list :is(.ac-pad-grip, .ac-pad-add-library, .ac-pad-whisper, .ac-pad-configure) {
+    position: static;
+    flex: 0 0 auto;
+    width: 28px;
+    min-width: 28px;
+    max-width: 28px;
+    height: 28px;
+    min-height: 28px;
+    max-height: 28px;
+    background: transparent;
+    color: var(--ac-text-dim);
+    font-size: var(--font-size-12);
+
+    &:hover {
+      background: var(--ac-surface-3);
+      color: var(--ac-accent);
+    }
+  }
+
+  /* Same geometry reasons as the corner controls above; only exists in the list view. */
+  .ac-pad-configure {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: 0;
+    border-radius: var(--ac-radius);
+    line-height: 1;
+    cursor: pointer;
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease;
+
+    &:focus-visible {
+      outline: 2px solid var(--ac-focus);
+      outline-offset: 1px;
+    }
   }
 
   /* --- Ambience section --------------------------------------------------- */

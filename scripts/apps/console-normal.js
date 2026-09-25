@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
+import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PAD_VIEWS, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
 import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused } from "../data/repository.js";
 import { buildContainerFlags, buildEntryFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
@@ -171,6 +171,8 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       // Soundboard
       toggleDuck: AudioConsoleNormal.#onToggleDuck,
       boardColor: AudioConsoleNormal.#onBoardColor,
+      togglePadView: AudioConsoleNormal.#onTogglePadView,
+      configurePad: AudioConsoleNormal.#onConfigurePad,
       firePad: AudioConsoleNormal.#onFirePad,
       whisperPad: AudioConsoleNormal.#onWhisperPad,
       // Ambience
@@ -265,6 +267,9 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
    * grid's width by #fitPadGrid. #padList asks on every paint, so a window drag re-lays the grid.
    */
   #padMetrics = { columns: 0, rowHeight: 0 };
+
+  /** Whether the selected board draws its pads as rows (PAD_VIEWS.LIST) rather than tiles. */
+  #padListView = false;
 
   /** @type {number|null} The pending pad tooltip, from #onPadPointerEnter. */
   #padTooltipTimer = null;
@@ -662,12 +667,16 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       };
     }) : [];
     const flags = selected ? readContainerFlags(selected) : null;
+    this.#padListView = flags?.view === PAD_VIEWS.LIST;
     context.selectedSoundboard = selected ? {
       id: selected.id,
       name: selected.name,
       favorite: flags.favorite,
       duck: flags.duck,
-      color: flags.color
+      color: flags.color,
+      listView: this.#padListView,
+      viewToggleLabel: this.#padListView
+        ? "AUDIO_CONSOLE.Soundboard.Actions.ViewGrid" : "AUDIO_CONSOLE.Soundboard.Actions.ViewList"
     } : null;
   }
 
@@ -1116,6 +1125,16 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     if (!scroll) return;
     const styles = getComputedStyle(grid);
     const scrollStyles = getComputedStyle(scroll);
+    // A list is one column of fixed-height rows, which the stylesheet owns (--ac-pad-row-height)
+    // the same way it owns --ac-entry-height for the playlist rows.
+    if (this.#padListView) {
+      const rowHeight = parseFloat(styles.getPropertyValue("--ac-pad-row-height"));
+      if (!(rowHeight > 0)) return;
+      grid.style.setProperty("--ac-pad-columns", "1");
+      this.#padMetrics = { columns: 1, rowHeight: rowHeight + parseFloat(styles.rowGap) };
+      this.#padList?.paint({ restoreScroll: true });
+      return;
+    }
     const min = parseFloat(styles.getPropertyValue("--ac-pad-min"));
     const gap = parseFloat(styles.columnGap);
     // clientWidth already excludes the scrollbar, and .ac-pad-scroll reserves that gutter
@@ -1198,6 +1217,11 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
    * button is one a click-and-twitch turns into a drag instead of a sound. Configure and remove
    * are not on the tile at all — right-click opens the config, and removing lives inside it
    * (dialogs.js promptPadConfig) — so the face keeps only the two controls used mid-scene.
+   *
+   * The list view (PAD_VIEWS.LIST) is the same element with its parts laid out in a row, so
+   * firing, the playing ring, reordering and right-click all work unchanged. It adds a visible
+   * Configure button, because a row has the room for one and right-click is not discoverable, and
+   * drops the delayed tooltip, which only existed to show a name the row now prints in full.
    * @param {number} start
    * @param {number} end
    * @returns {string}
@@ -1209,8 +1233,10 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       fire: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Fire"),
       stop: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Stop"),
       whisper: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Whisper"),
+      configure: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Configure"),
       addToLibrary: game.i18n.localize("AUDIO_CONSOLE.Playlists.Actions.AddToLibrary")
     };
+    const list = this.#padListView;
     const html = [];
     for (let index = start; index < end; index++) {
       const pad = this.#pads[index];
@@ -1224,12 +1250,13 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
         <button type="button" class="ac-pad-grip" draggable="true" data-pad-grip data-sound-id="${id}" aria-label="${e(labels.drag)}" data-tooltip="${e(labels.drag)}">
           <i class="fa-solid fa-up-down-left-right" inert></i>
         </button>
-        <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="${id}" aria-label="${e(pad.playing ? labels.stop : labels.fire)}: ${name}" data-pad-tooltip="${e(game.i18n.format("AUDIO_CONSOLE.Soundboard.Actions.PadHint", { name: pad.name }))}">
-          <img class="ac-pad-icon" src="${e(pad.icon)}" alt="" inert>${badge}
-          <span class="ac-pad-name" inert>${name}</span>
+        <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="${id}" aria-label="${e(pad.playing ? labels.stop : labels.fire)}: ${name}"${list ? "" : ` data-pad-tooltip="${e(game.i18n.format("AUDIO_CONSOLE.Soundboard.Actions.PadHint", { name: pad.name }))}"`}>
+          <img class="ac-pad-icon" src="${e(pad.icon)}" alt="" inert>${list ? "" : badge}
+          <span class="ac-pad-name" inert${list ? ` title="${name}"` : ""}>${name}</span>${list ? badge : ""}
         </button>
         ${addButton}
-        <button type="button" class="ac-pad-whisper" data-action="whisperPad" data-sound-id="${id}" aria-label="${e(labels.whisper)}" data-tooltip="${e(labels.whisper)}"><i class="fa-solid fa-paper-plane" inert></i></button>
+        <button type="button" class="ac-pad-whisper" data-action="whisperPad" data-sound-id="${id}" aria-label="${e(labels.whisper)}" data-tooltip="${e(labels.whisper)}"><i class="fa-solid fa-paper-plane" inert></i></button>${list ? `
+        <button type="button" class="ac-pad-configure" data-action="configurePad" data-sound-id="${id}" aria-label="${e(labels.configure)}: ${name}" data-tooltip="${e(labels.configure)}"><i class="fa-solid fa-pen" inert></i></button>` : ""}
       </div>`);
     }
     return html.join("");
@@ -1843,6 +1870,27 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
   }
 
   /**
+   * Switch the selected board between grid and list. A flag on the board, like its colour, so the
+   * console and the board's popout both redraw with it through the ordinary document hook.
+   * @this {AudioConsoleNormal}
+   */
+  static async #onTogglePadView(event, target) {
+    const { container } = this.#sectionOf(target);
+    if (!isContainer(container)) return;
+    const flags = readContainerFlags(container);
+    const view = flags.view === PAD_VIEWS.LIST ? PAD_VIEWS.GRID : PAD_VIEWS.LIST;
+    await updateContainers([{
+      _id: container.id,
+      flags: { [MODULE_ID]: buildContainerFlags({ ...flags, view }) }
+    }]);
+  }
+
+  /** The list view's Configure button — the same dialog right-click opens. @this {AudioConsoleNormal} */
+  static async #onConfigurePad(event, target) {
+    await this.#configurePad(target.dataset.soundId);
+  }
+
+  /**
    * Click toggles: a pad that is playing stops, any other fires. The random scheduler calls
    * playback.playEntry() directly and never sees this.
    * @this {AudioConsoleNormal}
@@ -1989,10 +2037,24 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     const pad = event.target.closest(".ac-pad");
     if (!pad || !this.#dragPadId || (pad.dataset.soundId === this.#dragPadId)) return;
     event.preventDefault();
-    const before = (event.clientX - pad.getBoundingClientRect().left) < (pad.offsetWidth / 2);
+    const before = this.#dropsBefore(event, pad);
     pad.classList.toggle("drag-over-before", before);
     pad.classList.toggle("drag-over-after", !before);
   };
+
+  /**
+   * Which side of a pad a drop lands on: the pointer's X against the tile's midpoint in the grid,
+   * which flows left to right, and its Y against the row's midpoint in the list, which flows down.
+   * @param {DragEvent} event
+   * @param {HTMLElement} pad
+   * @returns {boolean}
+   */
+  #dropsBefore(event, pad) {
+    const rect = pad.getBoundingClientRect();
+    return this.#padListView
+      ? (event.clientY - rect.top) < (rect.height / 2)
+      : (event.clientX - rect.left) < (rect.width / 2);
+  }
 
   #onPadDragLeave = event => {
     event.target.closest(".ac-pad")?.classList.remove("drag-over-before", "drag-over-after");
@@ -2016,7 +2078,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     const source = pads.find(s => s.id === draggedId);
     const target = pads.find(s => s.id === pad.dataset.soundId);
     if (!source || !target) return;
-    const sortBefore = (event.clientX - pad.getBoundingClientRect().left) < (pad.offsetWidth / 2);
+    const sortBefore = this.#dropsBefore(event, pad);
     const siblings = pads.filter(s => s !== source);
     const updates = foundry.utils.performIntegerSort(source, { target, siblings, sortBefore })
       .map(({ target: t, update }) => ({ _id: t.id, ...update }));

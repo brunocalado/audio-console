@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { MODULE_ID, FLAGS, CHANNELS, CONTAINER_KINDS, DEFAULT_CHANNEL, SECTIONS } from "../constants.js";
+import { MODULE_ID, FLAGS, CHANNELS, CONTAINER_KINDS, DEFAULT_CHANNEL, PAD_VIEWS, SECTIONS } from "../constants.js";
 
 const fields = foundry.data.fields;
 
@@ -60,7 +60,12 @@ export class ContainerFlags extends foundry.abstract.DataModel {
       // Ambiences only: switched on. Not the same as Playlist#playing, which core derives from the
       // sounds (v14.368, confirmed live) — an ambience whose only sounding layers are on a random interval
       // reads as stopped between fires, and the random scheduler would never fire it again.
-      active: new fields.BooleanField({ initial: false })
+      active: new fields.BooleanField({ initial: false }),
+      // Soundboards only: grid of tiles or list of rows. Absent on every board made before it
+      // existed, which is why the initial is the grid those boards were always drawn as.
+      view: new fields.StringField({
+        required: true, blank: false, choices: Object.values(PAD_VIEWS), initial: PAD_VIEWS.GRID
+      })
     };
   }
 }
@@ -188,7 +193,7 @@ export function readSectionFlags(folder) {
  * container. Membership is decided by repository.js first; only then are the flags read.
  * @param {Playlist} playlist
  * @returns {{kind: string, color: string|null, favorite: boolean, pack: {id: string, key: string}|null,
- *   duck: boolean, active: boolean}}
+ *   duck: boolean, active: boolean, view: string}}
  */
 export function readContainerFlags(playlist) {
   return readThrough(ContainerFlags, {
@@ -197,7 +202,8 @@ export function readContainerFlags(playlist) {
     favorite: playlist?.getFlag(MODULE_ID, FLAGS.FAVORITE),
     pack: playlist?.getFlag(MODULE_ID, FLAGS.PACK),
     duck: playlist?.getFlag(MODULE_ID, FLAGS.DUCK),
-    active: playlist?.getFlag(MODULE_ID, FLAGS.ACTIVE)
+    active: playlist?.getFlag(MODULE_ID, FLAGS.ACTIVE),
+    view: playlist?.getFlag(MODULE_ID, FLAGS.VIEW)
   }, playlist);
 }
 
@@ -231,7 +237,7 @@ export function buildSectionFlags(data) {
   return buildThrough(SectionFlags, data);
 }
 
-/** @param {{kind: string, color?: string|null, favorite?: boolean, pack?: {id: string, key: string}|null, duck?: boolean}} data */
+/** @param {{kind: string, color?: string|null, favorite?: boolean, pack?: {id: string, key: string}|null, duck?: boolean, view?: string}} data */
 export function buildContainerFlags(data) {
   return buildThrough(ContainerFlags, data);
 }
