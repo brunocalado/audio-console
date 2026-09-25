@@ -6,11 +6,12 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CONTAINER_KINDS, FLAGS, MODULE_ID } from "../constants.js";
+import { CONTAINER_KINDS, FLAGS, MIN_RANDOM_WAIT_S, MODULE_ID } from "../constants.js";
 import { containerKindOf, getContainers, getEntries } from "../data/repository.js";
 import { onContainerChange } from "../data/sync.js";
 import { buildContainerFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 import * as playback from "./playback.js";
+import { probeDuration } from "./durations.js";
 
 // Soundboard pads and random-interval ambience layers fire on a randomised timer whose
 // config lives in the entry's own flags. One scheduler runs in the whole world: the active-GM
@@ -27,11 +28,11 @@ import * as playback from "./playback.js";
 // every ambience in the world fires on its own clock, and a pack that ships hundreds of ambiences
 // (tabletop-audio: 230 of them, 2260 random layers) turns into dozens of sounds nobody started.
 
-// Floor the delay regardless of what the config says. EntryFlags.interval already clamps to a 2s
-// minimum on its own, but variance can still pull the *computed* delay below that; this is the
-// belt-and-suspenders floor on the delay itself, so a mistyped 0 or a small interval with wide
-// variance cannot become a playback loop that hammers the database.
-const MIN_DELAY_S = 2;
+// Every computed delay is floored at MIN_RANDOM_WAIT_S regardless of what the config says.
+// EntryFlags.interval already clamps to a 2s minimum on its own, but variance can still pull the
+// *computed* delay below that; this is the belt-and-suspenders floor on the delay itself, so a
+// mistyped 0 or a small interval with wide variance cannot become a playback loop that hammers
+// the database.
 
 // Debounced so a burst of structural changes (a bulk "add pads from library", several drags in a
 // row) collapses into one rebuild rather than tearing down and rebuilding every timer once per
@@ -64,7 +65,7 @@ function scheduledContainers() {
 function computeDelay({ interval, variance }) {
   const span = interval * variance;
   const seconds = interval + ((Math.random() * 2) - 1) * span;
-  return Math.max(seconds, MIN_DELAY_S) * 1000;
+  return Math.max(seconds, MIN_RANDOM_WAIT_S) * 1000;
 }
 
 /**
@@ -105,8 +106,9 @@ export const refresh = foundry.utils.debounce(start, REFRESH_DEBOUNCE_MS);
  * @param {string} containerId
  * @param {string} soundId
  * @param {number} [delay] Milliseconds, in place of the usual interval × (1 ± variance).
+ * @param {number} [afterMs] Added to the usual delay — the length of a sound that just started.
  */
-function scheduleNext(gen, containerId, soundId, delay) {
+function scheduleNext(gen, containerId, soundId, delay, afterMs = 0) {
   if (gen !== generation) return;
   const container = game.playlists.get(containerId);
   const sound = container?.sounds.get(soundId);
@@ -114,7 +116,7 @@ function scheduleNext(gen, containerId, soundId, delay) {
   const { random } = readEntryFlags(sound);
   if (!random.enabled) return; // turned off since the last schedule
 
-  const timeoutId = setTimeout(() => fire(gen, containerId, soundId), delay ?? computeDelay(random));
+  const timeoutId = setTimeout(() => fire(gen, containerId, soundId), delay ?? (computeDelay(random) + afterMs));
   timers.set(soundId, timeoutId);
 }
 
@@ -140,8 +142,23 @@ function fire(gen, containerId, soundId) {
   // rebuild — the timers are cheap, the playSound() write they would otherwise make is not.
   // The flag, not `playing`: see ContainerFlags.active.
   const live = (containerKindOf(container) !== CONTAINER_KINDS.AMBIENCE) || readContainerFlags(container).active;
-  if (live && !sound.playing) playback.playEntry(container, sound);
-  scheduleNext(gen, containerId, soundId);
+  if (!live || sound.playing) {
+    scheduleNext(gen, containerId, soundId);
+    return;
+  }
+  playback.playEntry(container, sound);
+
+  // The wait is counted from the end of the sound, so the GM's range is the silence between two
+  // plays rather than the gap between two starts: a 25s sound on "every 10–40s" measured from the
+  // start is still playing at 10s, gets skipped by the check above, and plays far less often than
+  // configured. It is the sound's length added to the delay, not a listen for its end — core does
+  // write `playing: false` when a sound finishes, but only from a client that actually heard it,
+  // and a scheduler waiting on that would stall with nobody listening. durations.js caches the
+  // read, so this is one metadata fetch per file per session, taken only for sounds that fire —
+  // never up front for every random entry in the world. An unreadable file adds nothing.
+  probeDuration(sound.path).then(seconds => {
+    scheduleNext(gen, containerId, soundId, undefined, (seconds ?? 0) * 1000);
+  });
 }
 
 /**
@@ -158,7 +175,7 @@ function restartAmbience(container) {
     const { random } = readEntryFlags(sound);
     if (!random.enabled) continue;
     clearTimeout(timers.get(sound.id));
-    const first = random.onStart ? undefined : Math.max(Math.random() * random.interval, MIN_DELAY_S) * 1000;
+    const first = random.onStart ? undefined : Math.max(Math.random() * random.interval, MIN_RANDOM_WAIT_S) * 1000;
     scheduleNext(gen, container.id, sound.id, first);
   }
 }

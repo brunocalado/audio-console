@@ -66,6 +66,7 @@ export const FLAGS = {
   SECTION: "section",         // Folder: which section folder this is
   RANDOM: "random",           // PlaylistSound: random-interval scheduler config
   ICON: "icon",               // PlaylistSound: the image a soundboard pad shows
+  LABEL: "label",             // PlaylistSound: the name a soundboard pad shows instead of the track's
   FAVORITE: "favorite",       // Playlist: pinned to the rail's Favorites list
   MACRO_FOLDER: "macroFolder", // Folder: the module's folder in the Macro sidebar
   SOUND_PATH: "soundPath",    // Macro: the audio file it plays — the pad-to-hotbar dedupe key
@@ -88,6 +89,16 @@ export const DUCK_RAMP_S = 0.4;
 // Stored on no pad: flag-models.js falls back to this rather than writing it out per pad, so a
 // change here moves every pad that never had an icon picked for it.
 export const DEFAULT_PAD_ICON = "icons/tools/instruments/megaphone.webp";
+
+// The shortest wait a random-interval entry may have between fires, in seconds. The scheduler
+// floors every computed delay at it (random-scheduler.js), and the config dialogs will not offer a
+// range below it (dialogs.js randomRangeFields).
+export const MIN_RANDOM_WAIT_S = 2;
+
+// A pad's own name is capped where it is typed (dialogs.js promptPadConfig). The face truncates
+// with an ellipsis long before this at the 96px minimum tile; the cap is what keeps the stored
+// value a label rather than a note, and the whole of it is still readable on the tooltip.
+export const MAX_PAD_LABEL_LENGTH = 32;
 
 // What marks a drag as ours — a soundboard pad or a library row. Both declare
 // `type: "PlaylistSound"`, because that is what a pad is (and what a row becomes, as an inline

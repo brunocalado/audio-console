@@ -95,7 +95,11 @@ export class EntryFlags extends foundry.abstract.DataModel {
       // that is not an image never reaches the database. null means "no choice made"; the console
       // falls back to DEFAULT_PAD_ICON rather than storing that default on every pad, so changing
       // the default later reaches pads that were never configured.
-      icon: new fields.FilePathField({ categories: ["IMAGE"], required: false, nullable: true, initial: null })
+      icon: new fields.FilePathField({ categories: ["IMAGE"], required: false, nullable: true, initial: null }),
+      // Soundboard pads only: the name shown on the pad face. null means "no choice made" and the
+      // face follows the track's own name, the same arrangement as `icon` above, so renaming the
+      // track in the library still reaches every pad that was never given a name of its own.
+      label: new fields.StringField({ required: false, nullable: true, initial: null })
     };
   }
 }
@@ -200,13 +204,14 @@ export function readContainerFlags(playlist) {
 /**
  * @param {PlaylistSound} sound
  * @returns {{random: {enabled: boolean, interval: number, variance: number, onStart: boolean}, color: string|null,
- *   icon: string|null}}
+ *   icon: string|null, label: string|null}}
  */
 export function readEntryFlags(sound) {
   return readThrough(EntryFlags, {
     random: sound?.getFlag(MODULE_ID, FLAGS.RANDOM),
     color: sound?.getFlag(MODULE_ID, FLAGS.COLOR),
-    icon: sound?.getFlag(MODULE_ID, FLAGS.ICON)
+    icon: sound?.getFlag(MODULE_ID, FLAGS.ICON),
+    label: sound?.getFlag(MODULE_ID, FLAGS.LABEL)
   }, sound);
 }
 

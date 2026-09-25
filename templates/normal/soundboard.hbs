@@ -42,6 +42,12 @@
                     aria-label="{{localize "AUDIO_CONSOLE.Soundboard.Actions.Duck"}}">
                 <i class="fa-solid fa-arrow-down-short-wide" inert></i>
             </button>
+            <button type="button" class="ac-icon-button{{#if selectedSoundboard.color}} active{{/if}} ac-board-color"
+                    data-action="boardColor" data-section="soundboards"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Soundboard.Actions.BoardColor"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Soundboard.Actions.BoardColor"}}">
+                <i class="fa-solid fa-palette" inert></i>
+            </button>
             <button type="button" class="ac-icon-button ac-favorite-toggle{{#if selectedSoundboard.favorite}} active{{/if}}"
                     data-action="toggleFavorite" data-section="soundboards"
                     aria-pressed="{{#if selectedSoundboard.favorite}}true{{else}}false{{/if}}"
@@ -112,7 +118,10 @@
                   grid was 21,477 elements. Same three-element shape as the library table — scroll,
                   spacer, window — driven by virtual-list.js, except that here the window is the
                   grid itself and the pitch is a tile plus its gap. --}}
-            <div class="ac-pad-scroll" data-pad-scroll>
+            {{!-- The board's background colour lives here, on the part the popout shares, so a
+                  popped-out board carries it without anything of its own. --}}
+            <div class="ac-pad-scroll{{#if selectedSoundboard.color}} coloured{{/if}}" data-pad-scroll
+                 {{#if selectedSoundboard.color}}style="--ac-board-color: {{selectedSoundboard.color}};"{{/if}}>
                 <div class="ac-pad-spacer" data-pad-spacer>
                     <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}" data-pad-grid></div>
                 </div>

@@ -31,8 +31,9 @@ import { VirtualList } from "./virtual-list.js";
 import {
   confirmClearQueue,
   confirmContainerDelete,
+  promptBoardColor,
   promptContainerName,
-  promptLayerRandom,
+  promptLayerPlayback,
   promptNewEntry,
   promptPadConfig,
   promptWhisperTarget
@@ -45,6 +46,13 @@ const TEMPLATES = `modules/${MODULE_ID}/templates/normal`;
 // a 1535-entry library and 1500-track containers: all eight parts are ~34,800 DOM nodes and ~800 ms
 // per render; rail + library + transport alone are 866 nodes and ~280 ms.
 const SECTION_PARTS = new Set(["library", "playlists", "soundboard", "ambience", "queue", "automation"]);
+
+// How long the pointer rests on a pad before its tooltip appears. Core's own delay
+// (TooltipManager.TOOLTIP_ACTIVATION_MS, 500 ms) is one static for the whole client, and it skips
+// the wait entirely once any tooltip is showing — so sweeping across a board popped a tooltip on
+// every pad passed over. The name is already on the face; the tooltip is only for a GM who stops
+// to read the whole of it, or to learn about right-click.
+const PAD_TOOLTIP_DELAY_MS = 1000;
 
 /**
  * The three container sections, keyed by the SECTIONS value their buttons carry as
@@ -162,12 +170,12 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       playPlaylistEntry: AudioConsoleNormal.#onPlayPlaylistEntry,
       // Soundboard
       toggleDuck: AudioConsoleNormal.#onToggleDuck,
+      boardColor: AudioConsoleNormal.#onBoardColor,
       firePad: AudioConsoleNormal.#onFirePad,
       whisperPad: AudioConsoleNormal.#onWhisperPad,
-      configurePad: AudioConsoleNormal.#onConfigurePad,
       // Ambience
       toggleLayerLoop: AudioConsoleNormal.#onToggleLayerLoop,
-      configureLayerRandom: AudioConsoleNormal.#onConfigureLayerRandom,
+      configureLayerPlayback: AudioConsoleNormal.#onConfigureLayerPlayback,
       // Now Playing
       playQueue: AudioConsoleNormal.#onPlayQueue,
       stopQueue: AudioConsoleNormal.#onStopQueue,
@@ -257,6 +265,9 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
    * grid's width by #fitPadGrid. #padList asks on every paint, so a window drag re-lays the grid.
    */
   #padMetrics = { columns: 0, rowHeight: 0 };
+
+  /** @type {number|null} The pending pad tooltip, from #onPadPointerEnter. */
+  #padTooltipTimer = null;
 
   /** Watches the pad grid's width so the tiles can be resized to fill it. */
   #padGridObserver = null;
@@ -637,7 +648,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       const flags = readEntryFlags(sound);
       return {
         id: sound.id,
-        name: entry?.name || sound.name || humanizeName(basenameOf(sound.path)),
+        name: flags.label || entry?.name || sound.name || humanizeName(basenameOf(sound.path)),
         hasLibraryEntry: !!entry,
         playing: sound.playing,
         color: flags.color,
@@ -651,7 +662,8 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       id: selected.id,
       name: selected.name,
       favorite: flags.favorite,
-      duck: flags.duck
+      duck: flags.duck,
+      color: flags.color
     } : null;
   }
 
@@ -851,6 +863,11 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     // tile a drag starts on may not have existed a scroll frame ago.
     const padGrid = this.element.querySelector("[data-pad-grid]");
     padGrid?.addEventListener("contextmenu", this.#onPadContextMenu);
+    // pointerenter/leave do not bubble, so they are caught on the way down — the same capture
+    // core's own TooltipManager listens with.
+    padGrid?.addEventListener("pointerenter", this.#onPadPointerEnter, true);
+    padGrid?.addEventListener("pointerleave", this.#onPadPointerLeave, true);
+    padGrid?.addEventListener("pointerdown", this.#cancelPadTooltip, true);
     padGrid?.addEventListener("dragstart", this.#onPadDragStart);
     padGrid?.addEventListener("dragover", this.#onPadDragOver);
     padGrid?.addEventListener("dragleave", this.#onPadDragLeave);
@@ -906,6 +923,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     this.#library.onClose();
     this.#padGridObserver?.disconnect();
     this.#padGridObserver = null;
+    this.#cancelPadTooltip();
     if (this.#automationHookId !== null) {
       foundry.helpers.Hooks.off(AUTOMATION_CHANGED_HOOK, this.#automationHookId);
     }
@@ -999,7 +1017,9 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       const playing = !!sound.playing;
       if (pad.classList.contains("playing") === playing) continue;
       pad.classList.toggle("playing", playing);
-      pad.querySelector(".ac-pad-fire")?.setAttribute("aria-label", `${playing ? labels.stop : labels.fire}: ${sound.name}`);
+      // The name the face shows, which a pad's own label may have replaced — not sound.name.
+      const name = this.#pads.find(p => p.id === sound.id)?.name ?? sound.name;
+      pad.querySelector(".ac-pad-fire")?.setAttribute("aria-label", `${playing ? labels.stop : labels.fire}: ${name}`);
     }
   }
 
@@ -1160,11 +1180,15 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
   /**
    * The tiles of the Soundboard section's pad grid, as one HTML string.
    *
-   * The face is an image, not the track's name: a pad is aimed at rather than read, and the name
-   * lives on the tooltip and the accessible label. The grip, not the tile, starts a drag: a pad's
-   * whole face is a fire button, and a draggable button is one a click-and-twitch turns into a
-   * drag instead of a sound. The right-hand column's order is send, configure, remove — remove
-   * last and furthest from everything that makes noise.
+   * The face is an image with the name along its bottom edge: a pad is aimed at by its picture,
+   * but a board built from the library starts with every pad on the same default icon, and then
+   * the name is the only thing that tells them apart. The whole name stays on the tooltip for when
+   * the face has to truncate it.
+   *
+   * The grip, not the tile, starts a drag: a pad's whole face is a fire button, and a draggable
+   * button is one a click-and-twitch turns into a drag instead of a sound. Configure and remove
+   * are not on the tile at all — right-click opens the config, and removing lives inside it
+   * (dialogs.js promptPadConfig) — so the face keeps only the two controls used mid-scene.
    * @param {number} start
    * @param {number} end
    * @returns {string}
@@ -1176,9 +1200,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       fire: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Fire"),
       stop: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Stop"),
       whisper: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Whisper"),
-      configure: game.i18n.localize("AUDIO_CONSOLE.Soundboard.Actions.Configure"),
-      addToLibrary: game.i18n.localize("AUDIO_CONSOLE.Playlists.Actions.AddToLibrary"),
-      remove: game.i18n.localize("AUDIO_CONSOLE.Playlists.Actions.RemoveEntry")
+      addToLibrary: game.i18n.localize("AUDIO_CONSOLE.Playlists.Actions.AddToLibrary")
     };
     const html = [];
     for (let index = start; index < end; index++) {
@@ -1193,15 +1215,12 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
         <button type="button" class="ac-pad-grip" draggable="true" data-pad-grip data-sound-id="${id}" aria-label="${e(labels.drag)}" data-tooltip="${e(labels.drag)}">
           <i class="fa-solid fa-up-down-left-right" inert></i>
         </button>
-        <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="${id}" aria-label="${e(pad.playing ? labels.stop : labels.fire)}: ${name}" data-tooltip="${name}">
+        <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="${id}" aria-label="${e(pad.playing ? labels.stop : labels.fire)}: ${name}" data-pad-tooltip="${e(game.i18n.format("AUDIO_CONSOLE.Soundboard.Actions.PadHint", { name: pad.name }))}">
           <img class="ac-pad-icon" src="${e(pad.icon)}" alt="" inert>${badge}
+          <span class="ac-pad-name" inert>${name}</span>
         </button>
         ${addButton}
-        <div class="ac-pad-column">
-          <button type="button" class="ac-pad-whisper" data-action="whisperPad" data-sound-id="${id}" aria-label="${e(labels.whisper)}" data-tooltip="${e(labels.whisper)}"><i class="fa-solid fa-paper-plane" inert></i></button>
-          <button type="button" class="ac-pad-cog" data-action="configurePad" data-sound-id="${id}" aria-label="${e(labels.configure)}" data-tooltip="${e(labels.configure)}"><i class="fa-solid fa-gear" inert></i></button>
-          <button type="button" class="ac-pad-remove" data-action="removeContainerEntry" data-section="${SECTIONS.SOUNDBOARDS}" data-sound-id="${id}" aria-label="${e(labels.remove)}" data-tooltip="${e(labels.remove)}"><i class="fa-solid fa-xmark" inert></i></button>
-        </div>
+        <button type="button" class="ac-pad-whisper" data-action="whisperPad" data-sound-id="${id}" aria-label="${e(labels.whisper)}" data-tooltip="${e(labels.whisper)}"><i class="fa-solid fa-paper-plane" inert></i></button>
       </div>`);
     }
     return html.join("");
@@ -1710,6 +1729,24 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
   }
 
   /**
+   * The selected board's background colour. Written to the container, so every console and the
+   * board's popout redraw with it through the ordinary structural-change path — nothing here
+   * reaches into another window.
+   * @this {AudioConsoleNormal}
+   */
+  static async #onBoardColor(event, target) {
+    const { container } = this.#sectionOf(target);
+    if (!isContainer(container)) return;
+    const flags = readContainerFlags(container);
+    const result = await promptBoardColor({ name: container.name, color: flags.color });
+    if (!result) return;
+    await updateContainers([{
+      _id: container.id,
+      flags: { [MODULE_ID]: buildContainerFlags({ ...flags, color: result.color }) }
+    }]);
+  }
+
+  /**
    * Click toggles: a pad that is playing stops, any other fires. The random scheduler calls
    * playback.playEntry() directly and never sees this.
    * @this {AudioConsoleNormal}
@@ -1768,6 +1805,8 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     const flags = readEntryFlags(sound);
     const result = await promptPadConfig({
       name: sound.name,
+      path: sound.path,
+      label: flags.label,
       volume: sound.volume,
       loop: sound.repeat,
       color: flags.color,
@@ -1775,19 +1814,49 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       random: flags.random
     });
     if (!result) return;
+    if (result === "remove") {
+      await deleteEntries(container, [sound.id]);
+      return;
+    }
     // Spread the existing flags first: a flag write replaces the whole scope.
     await updateEntries(container, [{
       _id: sound.id,
       volume: result.volume,
       repeat: result.loop,
-      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, color: result.color, icon: result.icon, random: result.random }) }
+      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, label: result.label, color: result.color, icon: result.icon, random: result.random }) }
     }]);
   }
 
-  /** @this {AudioConsoleNormal} */
-  static async #onConfigurePad(event, target) {
-    await this.#configurePad(target.dataset.soundId);
-  }
+  /**
+   * The pad face's tooltip, on a delay of its own (PAD_TOOLTIP_DELAY_MS). The face carries
+   * `data-pad-tooltip` rather than `data-tooltip` so core's manager never starts its own, shorter
+   * timer on it; once shown, it is core's tooltip like any other and core's pointerleave takes it
+   * down.
+   */
+  #onPadPointerEnter = event => {
+    const face = event.target;
+    if (!face.dataset?.padTooltip) return;
+    this.#cancelPadTooltip();
+    this.#padTooltipTimer = window.setTimeout(() => {
+      this.#padTooltipTimer = null;
+      if (face.isConnected && face.matches(":hover")) game.tooltip.activate(face, { text: face.dataset.padTooltip });
+    }, PAD_TOOLTIP_DELAY_MS);
+  };
+
+  /**
+   * Only the face's own leave counts: with capture on, leaving the random-interval badge inside it
+   * arrives here too, and the pointer is still on the face.
+   */
+  #onPadPointerLeave = event => {
+    if (event.target.dataset?.padTooltip) this.#cancelPadTooltip();
+  };
+
+  /** Also on pointerdown: a GM who clicked the pad is playing it, not waiting to read about it. */
+  #cancelPadTooltip = () => {
+    if (this.#padTooltipTimer === null) return;
+    window.clearTimeout(this.#padTooltipTimer);
+    this.#padTooltipTimer = null;
+  };
 
   #onPadContextMenu = event => {
     const pad = event.target.closest("[data-sound-id]");
@@ -1874,27 +1943,43 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     if (!container || !sound) return;
     const repeat = target.getAttribute("aria-pressed") !== "true";
     paintToggle(target, repeat);
-    const [updated] = await updateEntries(container, [{ _id: sound.id, repeat }]);
+    // Loop and random interval are two answers to one question (dialogs.js playbackField), so
+    // turning loop on here turns random off in the same write — otherwise the row could reach the
+    // combination the dialog no longer offers. Turning loop off leaves random alone.
+    const update = { _id: sound.id, repeat };
+    const flags = readEntryFlags(sound);
+    if (repeat && flags.random.enabled) {
+      update.flags = { [MODULE_ID]: buildEntryFlags({ ...flags, random: { ...flags.random, enabled: false } }) };
+    }
+    const [updated] = await updateEntries(container, [update]);
     // A refused write returns nothing and fires no hook, so the render that would correct the
     // button never comes. Put it back.
     if (!updated) paintToggle(target, !repeat);
   }
 
   /**
-   * A layer's random-interval settings only — volume and loop are live controls on the row. The
-   * same random fieldset a soundboard pad gets, plus whether the layer also plays on start.
+   * A layer's playback — volume, once/loop/random, and the random range — in the same shape as a
+   * pad's Sound tab.
    * @this {AudioConsoleNormal}
    */
-  static async #onConfigureLayerRandom(event, target) {
+  static async #onConfigureLayerPlayback(event, target) {
     const container = this.#selectedIn(SECTIONS.AMBIENCES);
     const sound = container?.sounds.get(target.dataset.soundId);
     if (!container || !sound) return;
     const flags = readEntryFlags(sound);
-    const random = await promptLayerRandom({ name: sound.name, random: flags.random });
-    if (!random) return;
+    const result = await promptLayerPlayback({
+      name: sound.name,
+      path: sound.path,
+      volume: sound.volume,
+      loop: sound.repeat,
+      random: flags.random
+    });
+    if (!result) return;
     await updateEntries(container, [{
       _id: sound.id,
-      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, random }) }
+      volume: result.volume,
+      repeat: result.loop,
+      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, random: result.random }) }
     }]);
   }
 

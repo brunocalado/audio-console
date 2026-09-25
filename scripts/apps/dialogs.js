@@ -6,8 +6,9 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CHANNEL_LABEL_KEYS, DEFAULT_PAD_ICON, LIBRARY_CHANGED_HOOK, LIBRARY_DIR, MAX_TAG_LENGTH, MIN_TAG_LENGTH, MODULE_ID } from "../constants.js";
-import { filePickerClass, formatBytes, sanitizeUserTags } from "../helpers.js";
+import { CHANNEL_LABEL_KEYS, DEFAULT_PAD_ICON, LIBRARY_CHANGED_HOOK, LIBRARY_DIR, MAX_PAD_LABEL_LENGTH, MAX_TAG_LENGTH, MIN_RANDOM_WAIT_S, MIN_TAG_LENGTH, MODULE_ID } from "../constants.js";
+import { filePickerClass, formatBytes, formatDuration, sanitizeUserTags } from "../helpers.js";
+import { probeDuration } from "../audio/durations.js";
 import { SKIP_REASONS } from "../library/consolidate.js";
 import * as library from "../library/index.js";
 
@@ -100,6 +101,130 @@ function numberOr(raw, fallback, min, max) {
  */
 function percentLabel(input) {
   return `${Math.round(Number(input) * 100)}%`;
+}
+
+/**
+ * The random-interval fields as a GM reads them: the shortest and the longest wait, in seconds.
+ *
+ * EntryFlags stores the same range as a centre and a spread (interval × (1 ± variance)), and so do
+ * the public API and every pack already built against it — so the pair is converted here, at the
+ * one place a person types it, rather than migrated. "0.5" was a number a GM had to do arithmetic
+ * on; "30 to 90" is not. Equal values are a fixed interval (variance 0).
+ *
+ * Shown to one decimal because a stored centre and spread need not land on whole seconds (45 ± 50%
+ * is 22.5–67.5); rounding to integers would quietly shift the range every time the dialog was
+ * saved unchanged. `step="any"` for the same reason — a value the dialog itself filled in must not
+ * fail the form's own validation.
+ * @param {string} idPrefix
+ * @param {{interval: number, variance: number}} random
+ * @returns {string}
+ */
+function randomRangeFields(idPrefix, { interval, variance }) {
+  const round = value => Math.round(value * 10) / 10;
+  const min = Math.max(round(interval * (1 - variance)), MIN_RANDOM_WAIT_S);
+  const max = round(interval * (1 + variance));
+  return `
+    <div class="form-group">
+      <label for="${idPrefix}-min">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.MinLabel"))}</label>
+      <div class="form-fields"><input id="${idPrefix}-min" type="number" name="min" min="${MIN_RANDOM_WAIT_S}" step="any" value="${min}"></div>
+    </div>
+    <div class="form-group">
+      <label for="${idPrefix}-max">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.MaxLabel"))}</label>
+      <div class="form-fields"><input id="${idPrefix}-max" type="number" name="max" min="${MIN_RANDOM_WAIT_S}" step="any" value="${max}"></div>
+      <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RangeHint"))}</p>
+    </div>`;
+}
+
+/**
+ * randomRangeFields read back into the stored centre and spread. A reversed pair is taken as the
+ * range it obviously means rather than rejected.
+ * @param {object} result The dialog's form data.
+ * @returns {{interval: number, variance: number}}
+ */
+function readRandomRange(result) {
+  const a = numberOr(result.min, 30, MIN_RANDOM_WAIT_S, Infinity);
+  const b = numberOr(result.max, 90, MIN_RANDOM_WAIT_S, Infinity);
+  const [min, max] = a <= b ? [a, b] : [b, a];
+  return { interval: (min + max) / 2, variance: (max - min) / (max + min) };
+}
+
+/**
+ * Fill a dialog's `[data-duration]` with how long the file runs. Filled after render because the
+ * read is async; durations.js caches it, so a file already measured by a playlist row shows at
+ * once. It is here so a GM choosing a random range can see what the wait is added to
+ * (random-scheduler.js counts it from the end of the sound).
+ * @param {HTMLElement} root
+ * @param {string} path
+ */
+function bindDuration(root, path) {
+  const target = root.querySelector("[data-duration]");
+  if (!target || !path) return;
+  probeDuration(path).then(seconds => {
+    target.textContent = (seconds === null) ? "–" : formatDuration(seconds);
+  });
+}
+
+/**
+ * How an entry plays, as three chips of which exactly one is lit — Play Once, Loop, or Random
+ * Interval — for both the pad config and the ambience layer's. The channel selector's radio chips
+ * (channelField), so the exclusivity is the browser's and the highlight follows the checked input
+ * alone.
+ *
+ * One choice rather than a Loop switch beside a "fire automatically" one: two switches allowed
+ * both at once, which means nothing useful — the first automatic fire loops forever and the
+ * scheduler skips every later one because the entry is still playing. The choice still lands on
+ * the same two stored fields (`repeat` and random.enabled), so nothing saved needs migrating; an
+ * entry saved with both on opens as Random Interval, the last thing its GM asked for.
+ * @param {boolean} loop
+ * @param {boolean} random
+ * @returns {string}
+ */
+function playbackField(loop, random) {
+  const mode = random ? "random" : (loop ? "loop" : "once");
+  const chips = ["once", "loop", "random"].map(value => `
+    <label class="ac-channel-chip">
+      <input type="radio" name="mode" value="${value}"${value === mode ? " checked" : ""}>
+      <span inert>${escapeHTML(t(`AUDIO_CONSOLE.Soundboard.Dialogs.Mode.${value}`))}</span>
+    </label>`).join("");
+  return `
+    <div class="form-group">
+      <label>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.ModeLabel"))}</label>
+      <div class="form-fields ac-channel-toggle" role="radiogroup" data-playback-mode>${chips}</div>
+    </div>`;
+}
+
+/**
+ * Show a dialog's `[data-random-fields]` only while Random Interval is chosen — the range means
+ * nothing in the other two modes. Hidden fields still submit, which keeps a range a GM set up and
+ * then switched away from.
+ * @param {DialogV2} dialog
+ */
+function bindPlaybackMode(dialog) {
+  const fields = dialog.element.querySelector("[data-random-fields]");
+  dialog.element.querySelector("[data-playback-mode]")?.addEventListener("change", event => {
+    fields.hidden = event.target.value !== "random";
+    dialog.setPosition({ height: "auto" });
+  });
+}
+
+/**
+ * The volume slider both entry dialogs carry. Shown and read back through the same input<->gain
+ * mapping the transport slider uses (AudioHelper.volumeToInput/inputToVolume), so a value set here
+ * feels the same as one dragged live — the slider position is never the raw gain.
+ * @param {string} idPrefix
+ * @param {number} volume
+ * @returns {string}
+ */
+function volumeField(idPrefix, volume) {
+  const input = foundry.audio.AudioHelper.volumeToInput(volume ?? 0.8);
+  return `
+    <div class="form-group">
+      <label for="${idPrefix}-volume">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VolumeLabel"))}</label>
+      <div class="form-fields ac-slider-field">
+        <input id="${idPrefix}-volume" type="range" name="volume" min="0" max="1" step="0.01" value="${input}">
+        <output class="ac-slider-value" for="${idPrefix}-volume">${percentLabel(input)}</output>
+      </div>
+    </div>`;
 }
 
 /**
@@ -691,100 +816,147 @@ export async function confirmContainerDelete(container) {
 /* -------------------------------------------- */
 
 /**
- * A soundboard pad's config: volume, loop, an optional accent colour, and its random-interval
- * settings (the interval/variance fields are audio/random-scheduler.js's config).
+ * A soundboard pad's config: its name, how it plays (playbackField), volume, an optional accent
+ * colour, and its icon.
  *
- * Volume is shown and read back through the same input<->gain mapping the transport slider uses
- * (AudioHelper.volumeToInput/inputToVolume), so a value set here feels the same as one dragged
- * live — the slider position is never the raw gain.
+ * It is also where a pad is removed from its board. The pad face used to carry that as a corner
+ * button, one stray click from wiping the pad's icon, colour and timing; here it takes opening the
+ * config first, and the trash sits beside Save rather than in a row of its own. The dialog resolves
+ * with the string "remove" for it, so the caller tells the two apart without a second callback.
  *
- * @param {{name: string, volume: number, loop: boolean, color: string|null,
- *   random: {enabled: boolean, interval: number, variance: number}}} pad
- * @returns {Promise<{volume: number, loop: boolean, color: string|null,
- *   random: {enabled: boolean, interval: number, variance: number}}|null>}
+ * @param {{name: string, path: string, label: string|null, volume: number, loop: boolean,
+ *   color: string|null, random: {enabled: boolean, interval: number, variance: number}}} pad
+ * @returns {Promise<{label: string|null, volume: number, loop: boolean, color: string|null,
+ *   random: {enabled: boolean, interval: number, variance: number}}|"remove"|null>}
  */
-export async function promptPadConfig({ name, volume, loop, color, icon, random }) {
-  const { AudioHelper } = foundry.audio;
-  const volumeInput = AudioHelper.volumeToInput(volume ?? 0.8);
+export async function promptPadConfig({ name, path, label, volume, loop, color, icon, random }) {
   const iconValue = icon || DEFAULT_PAD_ICON;
   const result = await DialogV2.input({
     window: { title: t("AUDIO_CONSOLE.Soundboard.Dialogs.ConfigTitle", { name }), icon: "fa-solid fa-gear" },
     classes: DIALOG_CLASSES,
     position: { width: 480 },
+    // Two tabs: how the pad sounds, and how it looks. The sound tab opens first — it is what a GM
+    // reaches for mid-session; name, colour and icon are set up once.
     content: `
       <div class="ac-wide-labels">
-      <div class="form-group">
-        <label for="ac-pad-volume">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VolumeLabel"))}</label>
-        <div class="form-fields ac-slider-field">
-          <input id="ac-pad-volume" type="range" name="volume" min="0" max="1" step="0.01" value="${volumeInput}">
-          <output class="ac-slider-value" for="ac-pad-volume">${percentLabel(volumeInput)}</output>
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="ac-pad-loop">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.LoopLabel"))}</label>
-        <div class="form-fields"><input id="ac-pad-loop" type="checkbox" name="loop"${loop ? " checked" : ""}></div>
-      </div>
-      <div class="form-group">
-        <label for="ac-pad-color-enabled">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.ColorLabel"))}</label>
-        <div class="form-fields">
-          <input id="ac-pad-color-enabled" type="checkbox" name="colorEnabled"${color ? " checked" : ""}>
-          <input id="ac-pad-color" type="color" name="color" value="${color ?? "#d4af37"}">
-        </div>
-      </div>
-      <div class="form-group">
-        <label for="ac-pad-icon">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconLabel"))}</label>
-        <div class="form-fields ac-icon-field">
-          <img class="ac-icon-preview" src="${escapeHTML(iconValue)}" alt="" data-icon-preview>
-          <input id="ac-pad-icon" type="text" name="icon" value="${escapeHTML(iconValue)}" data-icon-path>
-          <button type="button" class="ac-button" data-icon-browse>
-            <i class="fa-solid fa-file-image" inert></i>
-            <span inert>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconBrowse"))}</span>
-          </button>
-          <button type="button" class="ac-row-action" data-icon-clear
-                  aria-label="${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconClear"))}"
-                  data-tooltip="${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconClear"))}">
-            <i class="fa-solid fa-trash" inert></i>
-          </button>
-        </div>
-      </div>
-      <fieldset>
-        <legend>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RandomLegend"))}</legend>
-        <div class="form-group">
-          <label for="ac-pad-random-enabled">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RandomEnabledLabel"))}</label>
-          <div class="form-fields"><input id="ac-pad-random-enabled" type="checkbox" name="randomEnabled"${random.enabled ? " checked" : ""}></div>
-        </div>
-        <div class="form-group">
-          <label for="ac-pad-interval">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IntervalLabel"))}</label>
-          <div class="form-fields"><input id="ac-pad-interval" type="number" name="interval" min="2" step="1" value="${random.interval}"></div>
-          <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IntervalHint"))}</p>
-        </div>
-        <div class="form-group">
-          <label for="ac-pad-variance">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VarianceLabel"))}</label>
-          <div class="form-fields"><input id="ac-pad-variance" type="number" name="variance" min="0" max="1" step="0.05" value="${random.variance}"></div>
-          <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VarianceHint"))}</p>
-        </div>
-      </fieldset>
+      ${tabbedBody([
+        {
+          id: "sound",
+          label: t("AUDIO_CONSOLE.Soundboard.Dialogs.SoundTab"),
+          icon: "fa-volume-high",
+          content: `
+            <div class="form-group">
+              <label>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.DurationLabel"))}</label>
+              <div class="form-fields"><span class="ac-duration-value" data-duration>…</span></div>
+            </div>
+            ${volumeField("ac-pad", volume)}
+            ${playbackField(loop, random.enabled)}
+            <fieldset data-random-fields${random.enabled ? "" : " hidden"}>
+              <legend>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RandomLegend"))}</legend>
+              ${randomRangeFields("ac-pad", random)}
+            </fieldset>`
+        },
+        {
+          id: "appearance",
+          label: t("AUDIO_CONSOLE.Soundboard.Dialogs.AppearanceTab"),
+          icon: "fa-palette",
+          content: `
+            <div class="form-group">
+              <label for="ac-pad-label">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.LabelLabel"))}</label>
+              <div class="form-fields">
+                <input id="ac-pad-label" type="text" name="label" value="${escapeHTML(label ?? "")}"
+                       maxlength="${MAX_PAD_LABEL_LENGTH}" placeholder="${escapeHTML(name)}" autocomplete="off">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="ac-pad-color-enabled">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.ColorLabel"))}</label>
+              <div class="form-fields">
+                <input id="ac-pad-color-enabled" type="checkbox" name="colorEnabled"${color ? " checked" : ""}>
+                <input id="ac-pad-color" type="color" name="color" value="${color ?? "#d4af37"}">
+              </div>
+            </div>
+            <div class="form-group">
+              <label for="ac-pad-icon">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconLabel"))}</label>
+              <div class="form-fields ac-icon-field">
+                <img class="ac-icon-preview" src="${escapeHTML(iconValue)}" alt="" data-icon-preview>
+                <input id="ac-pad-icon" type="text" name="icon" value="${escapeHTML(iconValue)}" data-icon-path>
+                <button type="button" class="ac-button" data-icon-browse>
+                  <i class="fa-solid fa-file-image" inert></i>
+                  <span inert>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconBrowse"))}</span>
+                </button>
+                <button type="button" class="ac-row-action" data-icon-clear
+                        aria-label="${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconClear"))}"
+                        data-tooltip="${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IconClear"))}">
+                  <i class="fa-solid fa-trash" inert></i>
+                </button>
+              </div>
+            </div>`
+        }
+      ])}
       </div>`,
     ok: { label: t("AUDIO_CONSOLE.Soundboard.Dialogs.ConfigSubmit"), icon: "fa-solid fa-check" },
+    // Labelled, unlike the module's other destructive controls (.claude/rules/ui-patterns.md
+    // says icon only): beside a full-width Save, a bare trash square read as a stray control
+    // rather than as the other of two answers. `default` stays with Save, so Enter in a field
+    // never removes the pad.
+    buttons: [{
+      action: "remove",
+      label: "AUDIO_CONSOLE.Soundboard.Dialogs.Remove",
+      icon: "fa-solid fa-trash",
+      callback: () => "remove"
+    }],
     render: (event, dialog) => {
       bindSliderReadout(dialog.element);
       bindIconPicker(dialog.element);
+      bindDuration(dialog.element, path);
+      bindDialogTabs(dialog.element);
+      bindPlaybackMode(dialog);
     }
   });
   if (!result) return null;
+  if (result === "remove") return result;
   return {
-    volume: AudioHelper.inputToVolume(Number(result.volume)),
-    loop: !!result.loop,
+    // "" when the field was cleared, which is the GM asking for the track's own name back — null,
+    // for the same reason as `icon` below. maxlength already bounds a typed value; the slice is for
+    // one that arrived some other way.
+    label: String(result.label ?? "").trim().slice(0, MAX_PAD_LABEL_LENGTH) || null,
+    volume: foundry.audio.AudioHelper.inputToVolume(Number(result.volume)),
+    loop: result.mode === "loop",
     color: result.colorEnabled ? result.color : null,
     // "" when the field was cleared, which is the GM asking for the default back — stored as null
     // so the pad follows DEFAULT_PAD_ICON rather than freezing today's value.
     icon: String(result.icon ?? "").trim() || null,
-    random: {
-      enabled: !!result.randomEnabled,
-      interval: Math.max(2, Number(result.interval) || 60),
-      variance: numberOr(result.variance, 0.5, 0, 1)
-    }
+    random: { enabled: result.mode === "random", ...readRandomRange(result) }
   };
+}
+
+/**
+ * A soundboard's background colour: the same optional-colour pair as a pad's (a switch and a
+ * picker), for the whole board. Stored in ContainerFlags.color, which the API already accepted as
+ * a container's accent colour and nothing in the console had drawn yet.
+ * @param {{name: string, color: string|null}} board
+ * @returns {Promise<{color: string|null}|null>}
+ */
+export async function promptBoardColor({ name, color }) {
+  const result = await DialogV2.input({
+    window: { title: t("AUDIO_CONSOLE.Soundboard.Dialogs.BoardColorTitle", { name }), icon: "fa-solid fa-palette" },
+    classes: DIALOG_CLASSES,
+    position: { width: 400 },
+    content: `
+      <div class="ac-wide-labels">
+      <div class="form-group">
+        <label for="ac-board-color-enabled">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.ColorLabel"))}</label>
+        <div class="form-fields">
+          <input id="ac-board-color-enabled" type="checkbox" name="colorEnabled"${color ? " checked" : ""}>
+          <input id="ac-board-color" type="color" name="color" value="${color ?? "#d4af37"}">
+        </div>
+        <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.BoardColorHint"))}</p>
+      </div>
+      </div>`,
+    ok: { label: t("AUDIO_CONSOLE.Soundboard.Dialogs.ConfigSubmit"), icon: "fa-solid fa-check" }
+  });
+  if (!result) return null;
+  return { color: result.colorEnabled ? result.color : null };
 }
 
 /* -------------------------------------------- */
@@ -792,49 +964,53 @@ export async function promptPadConfig({ name, volume, loop, color, icon, random 
 /* -------------------------------------------- */
 
 /**
- * A layer's random-interval settings only — volume and loop are already live controls on
- * the mixer row itself, so this dialog is the soundboard pad config's random fieldset on its
- * own, so a layer on a random interval gets the same controls a soundboard pad does — plus the
- * one setting only a layer has, whether it also plays when the ambience starts.
- * @param {{name: string, random: {enabled: boolean, interval: number, variance: number, onStart: boolean}}} layer
- * @returns {Promise<{enabled: boolean, interval: number, variance: number, onStart: boolean}|null>}
+ * An ambience layer's playback: the pad config's Sound tab — duration, volume, the Playback choice
+ * and the random range — plus the one setting only a layer has, whether it also plays when the
+ * ambience starts. That one sits inside the random fieldset because it only means something there.
+ * One tab rather than the pad's two: a layer has no name, colour or icon of its own.
+ *
+ * Volume and loop are also live controls on the mixer row; this is the same two fields, not a
+ * second copy of them.
+ * @param {{name: string, path: string, volume: number, loop: boolean,
+ *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean}}} layer
+ * @returns {Promise<{volume: number, loop: boolean,
+ *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean}}|null>}
  */
-export async function promptLayerRandom({ name, random }) {
+export async function promptLayerPlayback({ name, path, volume, loop, random }) {
   const result = await DialogV2.input({
-    window: { title: t("AUDIO_CONSOLE.Ambience.Dialogs.RandomTitle", { name }), icon: "fa-solid fa-dice" },
+    window: { title: t("AUDIO_CONSOLE.Ambience.Dialogs.PlaybackTitle", { name }), icon: "fa-solid fa-dice" },
     classes: DIALOG_CLASSES,
-    position: { width: 420 },
+    position: { width: 480 },
     content: `
       <div class="ac-wide-labels">
       <div class="form-group">
-        <label for="ac-layer-random-enabled">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.RandomEnabledLabel"))}</label>
-        <div class="form-fields"><input id="ac-layer-random-enabled" type="checkbox" name="randomEnabled"${random.enabled ? " checked" : ""}></div>
-        <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.RandomEnabledHint"))}</p>
+        <label>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.DurationLabel"))}</label>
+        <div class="form-fields"><span class="ac-duration-value" data-duration>…</span></div>
       </div>
-      <div class="form-group">
-        <label for="ac-layer-on-start">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.OnStartLabel"))}</label>
-        <div class="form-fields"><input id="ac-layer-on-start" type="checkbox" name="onStart"${random.onStart ? " checked" : ""}></div>
-        <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.OnStartHint"))}</p>
-      </div>
-      <div class="form-group">
-        <label for="ac-layer-interval">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IntervalLabel"))}</label>
-        <div class="form-fields"><input id="ac-layer-interval" type="number" name="interval" min="2" step="1" value="${random.interval}"></div>
-        <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.IntervalHint"))}</p>
-      </div>
-      <div class="form-group">
-        <label for="ac-layer-variance">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VarianceLabel"))}</label>
-        <div class="form-fields"><input id="ac-layer-variance" type="number" name="variance" min="0" max="1" step="0.05" value="${random.variance}"></div>
-        <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.VarianceHint"))}</p>
-      </div>
+      ${volumeField("ac-layer", volume)}
+      ${playbackField(loop, random.enabled)}
+      <fieldset data-random-fields${random.enabled ? "" : " hidden"}>
+        <legend>${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RandomLegend"))}</legend>
+        ${randomRangeFields("ac-layer", random)}
+        <div class="form-group">
+          <label for="ac-layer-on-start">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.OnStartLabel"))}</label>
+          <div class="form-fields"><input id="ac-layer-on-start" type="checkbox" name="onStart"${random.onStart ? " checked" : ""}></div>
+          <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.OnStartHint"))}</p>
+        </div>
+      </fieldset>
       </div>`,
-    ok: { label: t("AUDIO_CONSOLE.Ambience.Dialogs.RandomSubmit"), icon: "fa-solid fa-check" }
+    ok: { label: t("AUDIO_CONSOLE.Soundboard.Dialogs.ConfigSubmit"), icon: "fa-solid fa-check" },
+    render: (event, dialog) => {
+      bindSliderReadout(dialog.element);
+      bindDuration(dialog.element, path);
+      bindPlaybackMode(dialog);
+    }
   });
   if (!result) return null;
   return {
-    enabled: !!result.randomEnabled,
-    interval: Math.max(2, Number(result.interval) || 60),
-    variance: numberOr(result.variance, 0.5, 0, 1),
-    onStart: !!result.onStart
+    volume: foundry.audio.AudioHelper.inputToVolume(Number(result.volume)),
+    loop: result.mode === "loop",
+    random: { enabled: result.mode === "random", ...readRandomRange(result), onStart: !!result.onStart }
   };
 }
 

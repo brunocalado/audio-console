@@ -453,14 +453,23 @@
         color: var(--ac-surface-0);
       }
     }
+
+    /* The pad config's Delete (dialogs.js promptPadConfig): sized to its label rather than an
+       equal share of the row, so Save stays the wide, obvious answer. The glyph is red already —
+       base.css colours every i.fa-trash. */
+    &[data-action="remove"] {
+      flex: 0 0 auto;
+      padding: 0 16px;
+    }
   }
 }
 
-/* --- The channel selector (dialogs.js: promptNewEntry, promptScanOptions) -------------------- */
+/* --- The channel selector (dialogs.js: promptNewEntry, promptScanOptions, promptPadConfig) ---- */
 
-/* The wrapper is now only a grouping class: the tokens arrive from the frame, which carries the
-   module scope, so the selector no longer has to demand `.audio-console` on the div itself. */
-.audio-console .ac-channel-dialog {
+/* Scoped to the dialog frame rather than to the `.ac-channel-dialog` wrapper the entry dialogs
+   still carry: the pad config's Playback choice (dialogs.js promptPadConfig) is the same radio
+   chips, and a wrapper class named for channels would have been the wrong reason to reach them. */
+.audio-console.ac-dialog {
   .ac-channel-toggle {
     display: flex;
     gap: 8px;

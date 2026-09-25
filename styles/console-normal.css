@@ -626,7 +626,8 @@
      glyph swaps between the outline and solid hearts (see the templates) so the state is never
      carried by colour alone. */
   .ac-icon-button.ac-favorite-toggle.active,
-  .ac-icon-button.ac-duck-toggle.active {
+  .ac-icon-button.ac-duck-toggle.active,
+  .ac-icon-button.ac-board-color.active {
     color: var(--ac-accent);
   }
 
@@ -961,6 +962,15 @@
     scrollbar-gutter: stable;
   }
 
+  /* A board's background colour (ContainerFlags.color), as a tint over the window base rather than
+     the raw pick: the pads keep their own surface on top of it, and a full-strength red or white
+     behind a grid of dark tiles would be the loudest thing in the window. 30% is enough for the
+     board to read as "the red one" at a glance. Same class-not-property reason as .ac-pad.coloured:
+     color-mix() against an unset custom property would tint every plain board transparent. */
+  .ac-pad-scroll.coloured {
+    background: color-mix(in oklab, var(--ac-board-color) 30%, var(--ac-surface-0));
+  }
+
   .ac-pad-spacer {
     position: relative;
     width: 100%;
@@ -1104,18 +1114,41 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* On a pad it sits in the one free corner, on the same translucent plate the corner buttons use
-     so it stays readable over artwork. */
-  /* Bottom-left, which is why the pad's controls all live on the other three corners: this one is
-     spoken for whenever a pad fires on a random interval. */
+  /* On a pad it sits on the same translucent plate the corner buttons use so it stays readable over
+     artwork. Right-hand side, under Send (4px edge + 22px button + 4px gap): the bottom edge
+     belongs to the name now, and the top-left corner to the grip. */
   .ac-pad-badge {
     position: absolute;
     z-index: 1;
-    bottom: 4px;
-    left: 4px;
+    top: 30px;
+    right: 4px;
   }
 
-  /* The corner controls: grip, add-to-library, and the four in the right-hand column.
+  /* The pad's name along its bottom edge, on a dark band so it reads over any artwork: at 70%
+     black, even pure white art underneath leaves the band at #4d4d4d, and --ac-text on that is
+     about 7.9:1. One line, truncated — the whole name is on the tooltip.
+
+     Inside the fire button, so a click on the name still fires; `inert` in the markup keeps it out
+     of the accessible name, which the button's own aria-label already carries. */
+  .ac-pad-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 3px 6px;
+    overflow: hidden;
+    background: rgb(0 0 0 / 70%);
+    color: var(--ac-text);
+    font-size: var(--font-size-11);
+    font-weight: 600;
+    line-height: 1.2;
+    text-align: center;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    pointer-events: none;
+  }
+
+  /* The corner controls: grip, add-to-library, and send.
 
      The three geometry declarations are all load-bearing. `width`/`height` alone left these
      rectangles — core sizes a <button> from --input-height and its own padding, and an absolutely
@@ -1126,10 +1159,8 @@
      Only appearance and size are shared. Where each one sits is its own business below, because
      the column's members are laid out by the column and no longer carry offsets at all. */
   .ac-pad-grip,
-  .ac-pad-cog,
   .ac-pad-add-library,
-  .ac-pad-whisper,
-  .ac-pad-remove {
+  .ac-pad-whisper {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -1149,7 +1180,7 @@
     cursor: pointer;
     /* Always visible, same rule .ac-row-action follows. The translucent black plate is what keeps
        them legible over any pad accent colour without needing a hover to introduce them. */
-    transition: background var(--ac-motion) ease, color var(--ac-motion) ease;
+    transition: background var(--ac-motion) ease, color var(--ac-motion) ease, opacity var(--ac-motion) ease;
 
     /* Gold on a near-solid plate, which is the same two-part answer .ac-row-action gives: over pad
        artwork a plate that only deepens is barely a change, so the glyph moves too. */
@@ -1179,25 +1210,22 @@
     }
   }
 
-  /* The right-hand column, top to bottom: send, configure, remove.
-
-     One positioned box that distributes its own children, rather than each button carrying a
-     hardcoded top. `space-between` between a fixed top and bottom means the buttons sit flush at
-     the 96px minimum and gain real gaps as #fitPadGrid grows the tile, which at the default window
-     it always does (102px measured). Adding a fourth would need no arithmetic.
-
-     "Send to one player" takes the top corner because that is the one a pointer reaches first, and
-     Remove keeps the bottom: it is deliberately in the far corner, away from everything that makes
-     noise. */
-  .ac-pad-column {
+  /* "Send to one player" takes the top-right corner because that is the one a pointer reaches
+     first. */
+  .ac-pad-whisper {
     position: absolute;
     z-index: 1;
     top: 4px;
     right: 4px;
-    bottom: 4px;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
+  }
+
+  /* Grip and Send recede until the pointer is on their pad: across a full board they are the same
+     two plates repeated on every tile, and at full strength they compete with the artwork the GM
+     is aiming by. Faded, not hidden — still findable without hunting. :focus-within brings them
+     back for a keyboard user too, whose pointer may be anywhere. Add-to-library is left at full
+     strength: it only appears on an uncatalogued pad, and saying so is its whole job. */
+  .ac-pad:not(:hover, :focus-within) :is(.ac-pad-grip, .ac-pad-whisper) {
+    opacity: 0.4;
   }
 
   /* The top row rather than the right-hand column: 4px edge + 22px button + 4px gap puts it
