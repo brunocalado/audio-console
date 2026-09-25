@@ -96,13 +96,21 @@
           readable or operable, and claiming a grid it has no keyboard model for would be worse
           than claiming nothing. --}}
     <div class="ac-picker-table" data-picker-table>
+        {{!-- A scroll window over the rows (virtual-list.js): scroll, a spacer as tall as every
+              row, and the few painted rows translated into view. --}}
         <div class="ac-picker-scroll" data-picker-scroll>
-            <div class="ac-picker-rows" data-picker-rows></div>
+            <div class="ac-picker-spacer" data-picker-spacer>
+                <div class="ac-picker-rows" data-picker-rows></div>
+            </div>
         </div>
         <p class="ac-picker-empty" data-picker-empty></p>
     </div>
 
     <footer class="ac-section-footer">
         <span class="ac-status" data-picker-status role="status"></span>
+        <span class="ac-picker-hint">
+            <i class="fa-solid fa-up-down-left-right" inert></i>
+            <span>{{localize "AUDIO_CONSOLE.Picker.DragHint"}}</span>
+        </span>
     </footer>
 </section>

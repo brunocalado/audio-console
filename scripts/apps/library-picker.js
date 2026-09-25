@@ -6,10 +6,12 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, MODULE_ID } from "../constants.js";
-import { dirnameOf, humanizeName } from "../helpers.js";
+import { CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, MODULE_ID, PICKER_DRAG_TYPE } from "../constants.js";
+import { dirnameOf, humanizeName, normalizePath } from "../helpers.js";
+import { getEntries, isContainer } from "../data/repository.js";
 import * as library from "../library/index.js";
 import { TREE_INDENT, buildFolderTree, flattenFolderTree, renderTreeGutter } from "./folder-tree.js";
+import { VirtualList } from "./virtual-list.js";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -33,10 +35,17 @@ const SEARCH_DEBOUNCE_MS = 120;
  * filter panel above, in the same chips the Library tab uses, and a row shows nothing but its
  * name, truncated.
  *
- * Unlike the Library table this paints every matched row rather than a virtual window: the row
- * body is a checkbox and a name, filtering and folding rebuild the whole list anyway, and a few
- * thousand of these is one innerHTML write of a joined string. The scroll container is still
- * bounded and internal, so the header controls never move off-screen.
+ * The rows are a scroll window (virtual-list.js), like the Library table's. Painting every row
+ * was measured in v14.368 against the Tabletop Audio pack's 3081 rows: 26,600 elements, ~1.5 s to
+ * open and ~500 ms for any repaint — a fold, Select All, a filter, a retarget after each drop —
+ * while building the tree itself took 14 ms. Every row is one --ac-row-height tall, folders
+ * included, which is the one thing the window's arithmetic needs.
+ *
+ * The window always has a target — the container it was opened on — and the target follows the
+ * console rather than staying fixed: selecting a card there, or dropping rows from here onto a
+ * card or an empty stretch of a container list, makes that container the target (the console
+ * calls AudioConsoleLibraryPicker.retarget). So a GM filling several containers from one folder
+ * keeps one window open, and the title always says where "Add Selected" is going.
  */
 export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(ApplicationV2) {
 
@@ -77,38 +86,58 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   };
 
   /**
-   * Open the picker over `candidates` and resolve with what the GM chose.
+   * Open the picker on `container`.
    *
    * One at a time, and an already-open one is closed rather than brought forward: two pickers
-   * feeding two different playlists, both looking identical, is a way to add fifty tracks to the
-   * wrong one. Closing resolves the older call with `null`, so its caller simply adds nothing.
-   * @param {{candidates: object[]}} options Library rows not already in the target container.
-   * @returns {Promise<string[]|null>} Chosen paths, or null if nothing was chosen / dismissed.
+   * aimed at two different containers, both looking identical, is a way to add fifty tracks to the
+   * wrong one.
+   * @param {{container: Playlist, add: (container: Playlist, paths: string[]) => Promise<void>}} options
+   *   `add` is the console's own insert, so an entry is shaped by the section it lands in.
    */
-  static async open({ candidates }) {
+  static async open({ container, add }) {
     await foundry.applications.instances.get(this.DEFAULT_OPTIONS.id)?.close();
-    const picker = new this({ candidates });
-    const chosen = new Promise(resolve => { picker.#resolve = resolve; });
-    await picker.render({ force: true });
-    return chosen;
+    await new this({ container, add }).render({ force: true });
   }
 
   /**
-   * `candidates` is destructured out before `super()` on purpose: ApplicationV2 runs whatever it
-   * is handed through mergeObject against DEFAULT_OPTIONS, and deep-merging a few thousand
-   * catalogue rows into the options object is real work for a value the framework has no use for.
-   * @param {{candidates?: object[]}} [options] Plus any ApplicationV2 option.
+   * Point the open picker, if there is one, at another container — or at the same one again after
+   * its contents changed, which is what a drop onto the current target is.
+   * @param {Playlist} container
    */
-  constructor({ candidates = [], ...options } = {}) {
-    super(options);
-    this.#candidates = candidates;
+  static retarget(container) {
+    foundry.applications.instances.get(this.DEFAULT_OPTIONS.id)?.#retarget(container);
   }
 
-  /** @type {object[]} The fixed pool this window picks from — never re-read from the catalogue. */
+  /**
+   * `container` and `add` are destructured out before `super()` on purpose: ApplicationV2 runs
+   * whatever it is handed through mergeObject against DEFAULT_OPTIONS, and deep-merging a Document
+   * into the options object is work (and a copy) the framework has no use for.
+   * @param {{container: Playlist, add: Function}} options Plus any ApplicationV2 option.
+   */
+  constructor({ container, add, ...options }) {
+    super(options);
+    this.#container = container;
+    this.#add = add;
+    // The catalogue as it stood when the window opened. Filling containers and editing the
+    // library are separate jobs, so the window never re-reads it; reopening does.
+    this.#pool = library.getAllEntries();
+    this.#candidates = this.#candidatesFor(container);
+  }
+
+  /** @type {Playlist} Where "Add Selected" goes. */
+  #container;
+
+  /** @type {(container: Playlist, paths: string[]) => Promise<void>} */
+  #add;
+
+  /** @type {object[]} Every library row, as of opening. */
+  #pool = [];
+
+  /** @type {object[]} The pool minus what the target already holds — what this window offers. */
   #candidates = [];
 
-  /** @type {((paths: string[]|null) => void)|null} */
-  #resolve = null;
+  /** @type {number|null} */
+  #deleteHookId = null;
 
   /** Paths ticked so far, kept across filter and fold changes (which rebuild every row). */
   #selected = new Set();
@@ -121,8 +150,18 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** Folder paths currently collapsed, by dirnameOf(entry.path). Session-only. */
   #collapsedFolders = new Set();
 
-  /** @type {object[]} The flattened folder/entry rows currently painted. */
+  /** @type {object[]} The flattened folder/entry rows the scroll window pages through. */
   #rows = [];
+
+  /** @type {VirtualList|null} */
+  #virtual = null;
+
+  /**
+   * Selected/total matched entries per folder path, from #tallyFolders. Kept so a scroll repaint
+   * can set the painted folder boxes without re-counting every matched entry each frame.
+   * @type {Map<string, {total: number, selected: number}>}
+   */
+  #folderTally = new Map();
 
   /** @type {object[]} Every entry the current filters match, collapsed folders included. */
   #matched = [];
@@ -133,6 +172,41 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** @type {HTMLElement|null} */ #statusEl = null;
   /** @type {HTMLButtonElement|null} */ #submitEl = null;
   /** @type {HTMLElement|null} */ #submitCountEl = null;
+
+  /** @override */
+  get title() {
+    return game.i18n.format("AUDIO_CONSOLE.Picker.TitleFor", { name: this.#container.name });
+  }
+
+  /**
+   * @param {Playlist} container
+   * @returns {object[]}
+   */
+  #candidatesFor(container) {
+    const inContainer = new Set(getEntries(container).map(sound => normalizePath(sound.path)));
+    return this.#pool.filter(entry => !inContainer.has(entry.path));
+  }
+
+  /**
+   * The ticks survive a change of target, minus whatever the new target already holds — which is
+   * also how a drop clears the rows it just delivered.
+   * @param {Playlist} container
+   */
+  #retarget(container) {
+    if (!isContainer(container)) return;
+    this.#container = container;
+    this.#candidates = this.#candidatesFor(container);
+    const offered = new Set(this.#candidates.map(entry => entry.path));
+    for (const path of this.#selected) {
+      if (!offered.has(path)) this.#selected.delete(path);
+    }
+    // The tag chips offered are the candidates' own vocabulary, so an open panel needs the full
+    // render. Otherwise only the title and the rows change, and a full render would repaint the
+    // whole window for them after every drop.
+    if (this.#tagPanelOpen) return void this.render({ window: { title: this.title } });
+    this.window.title.textContent = this.title;
+    this.#applyFilter();
+  }
 
   /* -------------------------------------------- */
   /*  Context                                     */
@@ -197,22 +271,63 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     // (folder-tree.js) pushed into CSS, never a number the stylesheet keeps its own copy of.
     this.#tableEl.style.setProperty("--ac-tree-col", `${TREE_INDENT}px`);
 
+    const elements = {
+      scrollEl: this.element.querySelector("[data-picker-scroll]"),
+      spacerEl: this.element.querySelector("[data-picker-spacer]"),
+      windowEl: this.#rowsEl
+    };
+    if (this.#virtual) this.#virtual.rebind(elements);
+    else {
+      this.#virtual = new VirtualList({
+        ...elements,
+        // base.css owns the number. Read off the window root rather than a row or the list: a
+        // re-render replaces those, and a detached node answers "" for a custom property.
+        metrics: () => ({ rowHeight: parseFloat(getComputedStyle(this.element)
+          .getPropertyValue("--ac-row-height")) || 0 }),
+        render: (start, end) => this.#rows.slice(start, end)
+          .map(row => (row.kind === "folder" ? this.#renderFolderRow(row) : this.#renderRow(row)))
+          .join(""),
+        // `indeterminate` has no attribute, so a folder box that just scrolled into view is set here.
+        onPainted: () => this.#paintFolderChecks()
+      });
+    }
+
     // Ticking a box is a `change`, which DEFAULT_OPTIONS.actions cannot see — and delegating it to
     // the list means the handler survives every repaint instead of being rebound per row.
     this.#rowsEl.addEventListener("change", this.#onCheckChange);
+    this.#rowsEl.addEventListener("dragstart", this.#onRowDragStart);
     this.element.querySelector("[data-picker-search]")?.addEventListener("input", this.#onSearchInput);
 
     this.#applyFilter();
   }
 
+  /**
+   * The scroll window only paints as many rows as the list is tall, and nothing else tells it the
+   * list changed height: the first position (and size) is applied after _onRender, and a resize
+   * drag after that.
+   * @inheritDoc
+   */
+  _onPosition(position) {
+    super._onPosition(position);
+    this.#virtual?.paint();
+  }
+
+  /** @inheritDoc */
+  _onFirstRender(context, options) {
+    super._onFirstRender(context, options);
+    // A target deleted out from under the window leaves "Add Selected" nowhere to go.
+    this.#deleteHookId = foundry.helpers.Hooks.on("deletePlaylist", playlist => {
+      if (playlist.id === this.#container.id) this.close();
+    });
+  }
+
   /** @inheritDoc */
   _onClose(options) {
     super._onClose(options);
-    // Closing the window is an answer: "nothing". Whether it came from the header ✕ or from
-    // #onSubmit having already resolved with a real selection, the caller is owed exactly one
-    // settlement, so the handle is cleared as it is used.
-    this.#resolve?.(null);
-    this.#resolve = null;
+    if (this.#deleteHookId !== null) foundry.helpers.Hooks.off("deletePlaylist", this.#deleteHookId);
+    this.#deleteHookId = null;
+    this.#virtual?.destroy();
+    this.#virtual = null;
   }
 
   /* -------------------------------------------- */
@@ -254,12 +369,10 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#updateStatus();
   }
 
-  /** One innerHTML write of a joined string, never appendChild in a loop. */
+  /** Hand the new row set to the scroll window, which paints only what is on screen. */
   #paintRows() {
-    this.#rowsEl.innerHTML = this.#rows
-      .map(row => (row.kind === "folder" ? this.#renderFolderRow(row) : this.#renderRow(row)))
-      .join("");
-    this.#syncFolderChecks();
+    this.#folderTally = this.#tallyFolders();
+    this.#virtual.setCount(this.#rows.length);
 
     // Two different empty states, and they need different words: an empty pool means everything in
     // the library is already in this container, while an empty result means the filters are too
@@ -288,10 +401,12 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     // flattened after its subfolders — so the last entry is the last thing in that folder's whole
     // subtree, which is exactly where the one separator belongs.
     const boundary = row.last ? " ac-row-boundary" : "";
-    return `<label class="ac-row ac-picker-row${boundary}" title="${path}">
+    const dragLabel = e(game.i18n.localize("AUDIO_CONSOLE.Picker.DragHint"));
+    return `<label class="ac-row ac-picker-row${boundary}" title="${path}" draggable="true" data-drag-path="${path}">
       ${renderTreeGutter(row.depth, true, row.last)}
       <input type="checkbox" class="ac-picker-check" data-path="${path}"${this.#selected.has(row.entry.path) ? " checked" : ""}>
       <span class="ac-picker-name">${e(row.entry.name)}</span>
+      <i class="fa-solid fa-up-down-left-right ac-picker-grip" role="img" aria-label="${dragLabel}" data-tooltip="${dragLabel}"></i>
     </label>`;
   }
 
@@ -319,7 +434,8 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     // follow and the separator belongs after the last of them instead.
     const boundary = collapsed ? " ac-row-boundary" : "";
     const label = e(game.i18n.format("AUDIO_CONSOLE.Picker.SelectFolder", { name: row.name }));
-    return `<div class="ac-row ac-row-folder ac-picker-row${boundary}">
+    const dragLabel = e(game.i18n.localize("AUDIO_CONSOLE.Picker.DragHint"));
+    return `<div class="ac-row ac-row-folder ac-picker-row${boundary}" draggable="true" data-drag-folder="${path}">
       ${renderTreeGutter(row.depth)}
       <input type="checkbox" class="ac-picker-check" data-folder-check="${path}" aria-label="${label}" data-tooltip="${label}">
       <button type="button" class="ac-picker-folder-toggle"
@@ -328,6 +444,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
         <span class="ac-folder-name" title="${path}">${e(row.name)}</span>
         <span class="ac-folder-count">(${row.count})</span>
       </button>
+      <i class="fa-solid fa-up-down-left-right ac-picker-grip" role="img" aria-label="${dragLabel}" data-tooltip="${dragLabel}"></i>
     </div>`;
   }
 
@@ -343,14 +460,20 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     return (dir === folder) || dir.startsWith(`${folder}/`);
   }
 
-  /**
-   * Reconcile every painted folder checkbox with #selected: ticked when all of its matched
-   * entries are selected, indeterminate when only some are. Counted in one pass over the matched
-   * entries, crediting each to every ancestor prefix of its own directory, rather than one pass
-   * per folder — a few hundred folders over a few thousand tracks is otherwise real work on every
-   * tick.
-   */
+  /** Re-count the folders against #selected and bring the painted folder boxes into line. */
   #syncFolderChecks() {
+    this.#folderTally = this.#tallyFolders();
+    this.#paintFolderChecks();
+  }
+
+  /**
+   * How many matched entries each folder holds, and how many of those are selected. Counted in
+   * one pass over the matched entries, crediting each to every ancestor prefix of its own
+   * directory, rather than one pass per folder — a few hundred folders over a few thousand tracks
+   * is otherwise real work on every tick.
+   * @returns {Map<string, {total: number, selected: number}>}
+   */
+  #tallyFolders() {
     const tally = new Map();
     for (const entry of this.#matched) {
       const dir = dirnameOf(entry.path);
@@ -364,8 +487,16 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
         if (i === -1) break;
       }
     }
+    return tally;
+  }
+
+  /**
+   * Set every painted folder checkbox from #folderTally: ticked when all of its matched entries
+   * are selected, indeterminate when only some are.
+   */
+  #paintFolderChecks() {
     for (const input of this.#rowsEl.querySelectorAll("[data-folder-check]")) {
-      const counts = tally.get(input.dataset.folderCheck);
+      const counts = this.#folderTally.get(input.dataset.folderCheck);
       input.checked = !!counts && (counts.selected === counts.total);
       input.indeterminate = !!counts && (counts.selected > 0) && (counts.selected < counts.total);
     }
@@ -428,6 +559,28 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
       this.#syncFolderChecks();
     } else return;
     this.#updateStatus();
+  };
+
+  /**
+   * Rows leave for a container list in the console (console-normal.js #onContainerListDrop). A
+   * ticked track carries the whole selection with it, hidden-by-filter ticks included, exactly as
+   * "Add Selected" would; an unticked one carries itself. A folder carries what the filters show of
+   * it, collapsed subfolders included, the same set its checkbox would tick.
+   */
+  #onRowDragStart = event => {
+    const track = event.target.closest?.("[data-drag-path]");
+    const folder = track ? null : event.target.closest?.("[data-drag-folder]");
+    let paths;
+    if (track) {
+      const path = track.dataset.dragPath;
+      paths = this.#selected.has(path) ? [...this.#selected] : [path];
+    } else if (folder) {
+      const dir = folder.dataset.dragFolder;
+      paths = this.#matched.filter(entry => AudioConsoleLibraryPicker.#isUnder(entry, dir)).map(entry => entry.path);
+    }
+    if (!paths?.length) return;
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData(PICKER_DRAG_TYPE, JSON.stringify(paths));
   };
 
   /**
@@ -505,9 +658,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** @this {AudioConsoleLibraryPicker} */
   static async #onSubmit() {
     if (!this.#selected.size) return;
-    const resolve = this.#resolve;
-    this.#resolve = null;
-    resolve?.([...this.#selected]);
+    await this.#add(this.#container, [...this.#selected]);
     await this.close();
   }
 }

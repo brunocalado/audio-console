@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
+import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
 import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused } from "../data/repository.js";
 import { buildContainerFlags, buildEntryFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
@@ -468,7 +468,11 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
    */
   #selectContainer(section, id) {
     this.#selected[section] = id;
-    if (id) game.settings.set(MODULE_ID, SETTINGS.SELECTED_CONTAINERS, { ...this.#lastSelectedContainers(), [section]: id });
+    if (!id) return;
+    game.settings.set(MODULE_ID, SETTINGS.SELECTED_CONTAINERS, { ...this.#lastSelectedContainers(), [section]: id });
+    // An open "Add from Library" window works on whatever the GM last picked here, so its
+    // "Add Selected" never points somewhere other than the container on screen.
+    AudioConsoleLibraryPicker.retarget(game.playlists.get(id));
   }
 
   /**
@@ -858,6 +862,11 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       entryList.addEventListener("input", this.#onEntryVolumeInput);
     }
     this.element.querySelector("[data-layer-list]")?.addEventListener("input", this.#onEntryVolumeInput);
+    for (const list of this.element.querySelectorAll("[data-container-drop]")) {
+      list.addEventListener("dragover", this.#onContainerListDragOver);
+      list.addEventListener("dragleave", this.#onContainerListDragLeave);
+      list.addEventListener("drop", this.#onContainerListDrop);
+    }
 
     // Right-click opens pad config; reordering is delegated on the grid because, virtualised, the
     // tile a drag starts on may not have existed a scroll frame ago.
@@ -1322,20 +1331,30 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
   /** @this {AudioConsoleNormal} */
   static async #onCreateContainer(event, target) {
     const { section, spec } = this.#sectionOf(target);
-    let name = await promptContainerName({
+    const name = await promptContainerName({
       title: game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.CreateTitle`),
       submitLabel: game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.CreateSubmit`)
     });
     if (name === null) return;
-    if (!name) {
-      name = nextDefaultName(game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.DefaultName`),
-        getContainers(spec.kind).map(c => c.name));
-    }
-    const folder = getSectionFolder(section);
-    const [created] = await createContainers([{ name, kind: spec.kind, folder: folder?.id ?? null }]);
+    const created = await this.#createContainerIn(section, name);
     if (!created) return;
     this.#selectContainer(section, created.id);
     await this.render({ parts: [spec.part] });
+  }
+
+  /**
+   * A new container in a section, named by the GM or — left blank — by the next free default.
+   * @param {string} section A SECTIONS key.
+   * @param {string} [name]
+   * @returns {Promise<Playlist|null>}
+   */
+  async #createContainerIn(section, name) {
+    const spec = CONTAINER_SECTIONS[section];
+    name ||= nextDefaultName(game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.DefaultName`),
+      getContainers(spec.kind).map(c => c.name));
+    const folder = getSectionFolder(section);
+    const [created] = await createContainers([{ name, kind: spec.kind, folder: folder?.id ?? null }]);
+    return created ?? null;
   }
 
   /** @this {AudioConsoleNormal} */
@@ -1403,7 +1422,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
 
   /** @this {AudioConsoleNormal} */
   static async #onAddFromLibrary(event, target) {
-    const { spec, container } = this.#sectionOf(target);
+    const { container } = this.#sectionOf(target);
     if (!container) return;
     const inContainer = new Set(getEntries(container).map(s => normalizePath(s.path)));
     const candidates = library.getAllEntries().filter(entry => !inContainer.has(entry.path));
@@ -1411,11 +1430,24 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       ui.notifications.info(game.i18n.localize("AUDIO_CONSOLE.Playlists.Notify.NothingToAdd"));
       return;
     }
-    const selected = await AudioConsoleLibraryPicker.open({ candidates });
-    if (!selected?.length) return;
-    const specs = selected.map(path => library.getEntry(path)).filter(Boolean).map(spec.toSpec);
-    await createEntries(container, specs);
-    ui.notifications.info(game.i18n.format("AUDIO_CONSOLE.Playlists.Notify.AddedFromLibrary", { count: specs.length, name: container.name }));
+    await AudioConsoleLibraryPicker.open({ container, add: (into, paths) => this.#addLibraryPaths(into, paths) });
+  }
+
+  /**
+   * Library rows into a container, shaped by the section that container lives in. Silent either
+   * way — the entries appearing in the console are the acknowledgement. What it already holds is
+   * skipped: the picker's own list never offers those, and a drag of a
+   * folder that is half in there already means "the rest of it".
+   * @param {Playlist} container
+   * @param {string[]} paths Library paths.
+   */
+  async #addLibraryPaths(container, paths) {
+    const home = homeOf(container);
+    if (!home) return;
+    const inContainer = new Set(getEntries(container).map(s => normalizePath(s.path)));
+    const specs = paths.filter(path => !inContainer.has(path))
+      .map(path => library.getEntry(path)).filter(Boolean).map(home.toSpec);
+    if (specs.length) await createEntries(container, specs);
   }
 
   /**
@@ -1578,6 +1610,70 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     await this.setAudioMode(AUDIO_MODES.BROADCAST);
     await playback.playEntry(container, sound);
   }
+
+  /* -------------------------------------------- */
+  /*  Picker drops on a container list             */
+  /* -------------------------------------------- */
+
+  /**
+   * Only the "Add from Library" picker's drag is accepted here (library-picker.js
+   * #onRowDragStart). Its payload is unreadable until the drop, so it is recognised by its MIME
+   * type alone.
+   */
+  #onContainerListDragOver = event => {
+    if (!event.dataTransfer.types.includes(PICKER_DRAG_TYPE)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    this.#markContainerDrop(event.currentTarget, event.target.closest("[data-container-id]"));
+  };
+
+  #onContainerListDragLeave = event => {
+    if (!event.currentTarget.contains(event.relatedTarget)) this.#markContainerDrop(event.currentTarget, null, false);
+  };
+
+  /**
+   * Show where a drop would land: on a card, into that container; anywhere else in the list, into
+   * a new one.
+   * @param {HTMLElement} list
+   * @param {HTMLElement|null} card
+   * @param {boolean} [active] False clears both marks.
+   */
+  #markContainerDrop(list, card, active = true) {
+    for (const el of list.querySelectorAll(".drop-target")) {
+      if (el !== card) el.classList.remove("drop-target");
+    }
+    card?.classList.add("drop-target");
+    list.classList.toggle("drop-new", active && !card);
+  }
+
+  /**
+   * A drop on a card adds to that container; a drop on the list around the cards creates one,
+   * named the way "New" names a container left blank. Either way it becomes the selected
+   * container, which also makes it the picker's target.
+   */
+  #onContainerListDrop = async event => {
+    const list = event.currentTarget;
+    this.#markContainerDrop(list, null, false);
+    if (!event.dataTransfer.types.includes(PICKER_DRAG_TYPE)) return;
+    event.preventDefault();
+    let paths;
+    try {
+      paths = JSON.parse(event.dataTransfer.getData(PICKER_DRAG_TYPE));
+    } catch {
+      return;
+    }
+    if (!Array.isArray(paths)) return;
+    paths = paths.filter(path => typeof path === "string");
+    const section = list.dataset.section;
+    const spec = CONTAINER_SECTIONS[section];
+    if (!spec || !paths.length) return;
+    const id = event.target.closest("[data-container-id]")?.dataset.containerId;
+    const container = id ? game.playlists.get(id) : await this.#createContainerIn(section);
+    if (!isContainer(container)) return;
+    await this.#addLibraryPaths(container, paths);
+    this.#selectContainer(section, container.id);
+    await this.render({ parts: [spec.part] });
+  };
 
   /* -------------------------------------------- */
   /*  Entry drag-to-reorder                        */

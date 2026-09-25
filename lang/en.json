@@ -164,6 +164,8 @@
     },
     "Picker": {
       "Title": "Add from Library",
+      "TitleFor": "Add from Library — {name}",
+      "DragHint": "Drag rows onto a card in the console to add them there, or onto an empty part of the list to create one",
       "SelectAll": "Select All",
       "ClearSelection": "Clear Selection",
       "SelectFolder": "Select everything in {name}",
@@ -222,7 +224,6 @@
         "DeleteCancel": "Cancel"
       },
       "Notify": {
-        "AddedFromLibrary": "{count} added to \"{name}\".",
         "AddedTo": "\"{name}\" added to \"{container}\".",
         "NothingToAdd": "Every library track is already in this playlist."
       }

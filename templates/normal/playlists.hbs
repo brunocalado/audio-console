@@ -92,7 +92,8 @@
 
     <div class="ac-playlists-body">
         {{#unless popout}}
-        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Playlists.ListLabel"}}">
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Playlists.ListLabel"}}"
+             data-container-drop data-section="playlists">
             {{#each containers as |container|}}
             {{!-- Rename lives here, next to the name, rather than in the detail pane on the
                   right: the name is already shown per-card, so a second copy of it up there (with

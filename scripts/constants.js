@@ -110,6 +110,12 @@ export const MAX_PAD_LABEL_LENGTH = 32;
 // shared home is what keeps a typo in one of them from silently failing to match the others.
 export const SOUND_DRAG_MARKER = "sound";
 
+// The "Add from Library" picker's drag: a list of library paths bound for a container list, and
+// nowhere else. It travels under a MIME type of its own rather than as text/plain JSON, so core's
+// canvas and hotbar drops — which parse only text/plain — find nothing to act on, and so a
+// container list can accept it during dragover, when only the type list is readable.
+export const PICKER_DRAG_TYPE = `application/x-${MODULE_ID}-paths`;
+
 // flags["audio-console"].kind on a container Playlist.
 export const CONTAINER_KINDS = {
   PLAYLIST: "playlist",

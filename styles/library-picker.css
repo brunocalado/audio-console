@@ -49,6 +49,22 @@
     min-height: 0;
     overflow-x: hidden;
     overflow-y: auto;
+    position: relative;
+  }
+
+  /* The scroll window (virtual-list.js): the spacer is what the scrollbar measures, and the rows
+     element holds only the painted rows, moved onto the right one with translateY. */
+  .ac-picker-spacer {
+    position: relative;
+    width: 100%;
+  }
+
+  .ac-picker-rows {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    will-change: transform;
   }
 
   /* The row's own layout, the one thing .ac-row in base.css deliberately leaves to each list:
@@ -59,6 +75,38 @@
     display: flex;
     gap: 8px;
     line-height: 1;
+  }
+
+  /* The row's drag affordance — the same glyph as the Library tab's grip and a pad's. Dimmed until
+     the row is hovered, so a list of thousands does not read as a column of icons. Not `inert`:
+     an inert node is skipped by hit-testing, so neither its grab cursor nor its tooltip would
+     show. The whole row is what drags; this only says so. */
+  .ac-picker-grip {
+    flex: 0 0 auto;
+    margin-left: auto;
+    color: var(--ac-text-dim);
+    opacity: 0.4;
+    cursor: grab;
+    transition: opacity var(--ac-motion) ease;
+  }
+
+  .ac-picker-row:hover .ac-picker-grip {
+    opacity: 1;
+  }
+
+  /* Beside the status count; truncates rather than wrapping the footer onto a second line. */
+  .ac-picker-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    font-size: var(--font-size-12);
+
+    & span {
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+    }
   }
 
   /* The box is painted here outright. Core draws a checkbox as a Font Awesome glyph at

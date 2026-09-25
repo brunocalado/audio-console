@@ -564,6 +564,20 @@
       background: var(--ac-surface-2);
       color: var(--ac-text);
     }
+
+    /* A picker drag hovering this card: the drop adds to it. Dashed, so it never reads as the
+       solid border of the selected card. */
+    &.drop-target {
+      border: 1px dashed var(--ac-accent);
+      background: var(--ac-surface-2);
+    }
+  }
+
+  /* A picker drag hovering the list but no card: the drop creates a new container. Inset, so the
+     outline cannot be clipped by the list's own overflow. */
+  .ac-container-list.drop-new {
+    outline: 1px dashed var(--ac-accent);
+    outline-offset: -3px;
   }
 
   .ac-container-name {

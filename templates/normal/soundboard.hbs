@@ -72,7 +72,8 @@
 
     <div class="ac-soundboard-body">
         {{#unless popout}}
-        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.ListLabel"}}">
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.ListLabel"}}"
+             data-container-drop data-section="soundboards">
             {{#each soundboards as |board|}}
             {{!-- Same single-line card + inline rename as Playlists: the pad count read as noise
                   once the card was selectable by name alone, and rename only targets "whichever

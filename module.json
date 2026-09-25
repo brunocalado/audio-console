@@ -2,7 +2,7 @@
   "id": "audio-console",
   "title": "Audio Console",
   "description": "Music library, playlists, soundboard, and ambience mixer for Foundry VTT — built on native Playlist documents and the native audio API, with a library that follows you across worlds.",
-  "version": "0.0.1",
+  "version": "0.0.3",
   
   "authors": [
     {

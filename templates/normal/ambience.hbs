@@ -66,7 +66,8 @@
 
     <div class="ac-ambience-body">
         {{#unless popout}}
-        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Ambience.ListLabel"}}">
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Ambience.ListLabel"}}"
+             data-container-drop data-section="ambiences">
             {{#each ambiences as |ambience|}}
             {{!-- Same single-line card + inline rename as Playlists: the layer count read as
                   noise once the card was selectable by name alone, and rename only targets
