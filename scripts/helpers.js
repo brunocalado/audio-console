@@ -52,11 +52,27 @@ export function normalizePath(path) {
 /**
  * The only form that may be handed to fetch(). Decoding first is what stops an already-encoded
  * %20 from becoming %2520 and 404ing.
+ *
+ * Per segment, with the *Component pair, not encodeURI(normalizePath()). decodeURI leaves the
+ * characters URLs reserve (# & + = ? , ; : @ $) encoded, so a stored "Pasta%20%231" came back as
+ * "Pasta #%231" and encodeURI then turned that % into %25: every file with one of those in its
+ * name or folder was requested as %2523, 404'd, and read as Missing while core — which plays the
+ * stored path as-is — played it fine (measured in v14.368). The same request fed duration, preview
+ * and whisper. Splitting on "/" first keeps an encoded %2F inside a segment rather than turning it
+ * into a separator.
+ *
+ * A remote URL keeps the old treatment: its scheme and host are not path segments.
  * @param {string} path
  * @returns {string}
  */
 export function toFetchUrl(path) {
-  return encodeURI(normalizePath(path));
+  if (!path) return "";
+  if (isRemotePath(path)) return encodeURI(normalizePath(path));
+  return path.replace(/^\/+/, "").split("/").map(segment => {
+    let decoded;
+    try { decoded = decodeURIComponent(segment); } catch { decoded = segment; } // a bare "%", e.g. "50% off"
+    return encodeURIComponent(decoded);
+  }).join("/");
 }
 
 /**

@@ -106,10 +106,10 @@ function percentLabel(input) {
 /**
  * The random-interval fields as a GM reads them: the shortest and the longest wait, in seconds.
  *
- * EntryFlags stores the same range as a centre and a spread (interval × (1 ± variance)), and so do
- * the public API and every pack already built against it — so the pair is converted here, at the
- * one place a person types it, rather than migrated. "0.5" was a number a GM had to do arithmetic
- * on; "30 to 90" is not. Equal values are a fixed interval (variance 0).
+ * EntryFlags stores the range as a centre and a spread (interval × (1 ± variance)), which is also
+ * the public API's shape (docs/API.md), so the pair is converted here, at the one place a person
+ * types it. "0.5" is a number a GM would have to do arithmetic on; "30 to 90" is not. Equal values
+ * are a fixed interval (variance 0).
  *
  * Shown to one decimal because a stored centre and spread need not land on whole seconds (45 ± 50%
  * is 22.5–67.5); rounding to integers would quietly shift the range every time the dialog was
@@ -172,9 +172,9 @@ function bindDuration(root, path) {
  *
  * One choice rather than a Loop switch beside a "fire automatically" one: two switches allowed
  * both at once, which means nothing useful — the first automatic fire loops forever and the
- * scheduler skips every later one because the entry is still playing. The choice still lands on
- * the same two stored fields (`repeat` and random.enabled), so nothing saved needs migrating; an
- * entry saved with both on opens as Random Interval, the last thing its GM asked for.
+ * scheduler skips every later one because the entry is still playing. The choice is stored as the
+ * two fields it reads from (`repeat` and random.enabled). The public API can still set both on
+ * one sound; such an entry opens as Random Interval.
  * @param {boolean} loop
  * @param {boolean} random
  * @returns {string}
