@@ -70,6 +70,14 @@ of its pads plays, then comes back on its own. Drag a pad to the hotbar to turn 
 volume, you set the radius, and only players with a token in range hear it — or send a sound to
 **one single player**, so only they hear it.
 
+**Share a board with your players** and they get a window of its pads, opened from a button of
+their own: they can play and stop those pads, and nothing else — no configuring, no editing, no
+library. Everyone hears what they fire, and you can stop it from the console like any other pad.
+Share with the whole table from the board's toolbar, or with only some players by giving them
+**Observer** ownership of it in the Playlists sidebar. Your Foundry tab has to be awake for their
+pads to play, so keep it from sleeping in the background (in Chrome: Settings → Performance →
+*Always keep these sites active*).
+
 ![A soundboard of pads](docs/soundboard.webp)
 
 ### 🌧️ Ambiences — build a soundscape in layers
@@ -109,7 +117,8 @@ soundboard or ambience in a small window of its own.
 # 🚀 Getting started
 
 1. **Enable the module** in your world. An **Audio Console** button appears in the
-   Sounds scene controls and in the Playlists sidebar header. (GM only — players never see it.)
+   Sounds scene controls and in the Playlists sidebar header. Players never see the console; they
+   only get a button of their own once you share a soundboard with them.
 2. **Fill the library.** Open the **Library** section and use **Add** for a single file, or
    **Scan Folder** to register a whole folder at once.
 3. **Build something.** Make a playlist, a soundboard or an ambience and add tracks from the library.
@@ -127,7 +136,8 @@ AudioConsole.Open();
 ```
 
 It opens whichever mode you left it in, the full window or the compact bar — exactly what the
-buttons do. GM only, same as everything else: a player who runs it just gets a notice.
+buttons do. A player who runs it opens the soundboards you shared with them, or gets a notice if
+there are none.
 
 ---
 
