@@ -272,8 +272,11 @@ export class LibrarySection {
     }
 
     // Focus is tracked by index, not by element: the element was just thrown away and rebuilt.
+    // preventScroll because this runs on every scroll repaint: a plain focus() scrolls the row back
+    // into view, pinning the list to the last clicked row while it sits inside the buffer.
+    // Keyboard navigation does its own scrolling in #focusRow.
     if ((this.#focusedIndex >= start) && (this.#focusedIndex < end)) {
-      this.#rowsEl.querySelector(`[data-index="${this.#focusedIndex}"]`)?.focus();
+      this.#rowsEl.querySelector(`[data-index="${this.#focusedIndex}"]`)?.focus({ preventScroll: true });
     }
   }
 
