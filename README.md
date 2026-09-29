@@ -33,15 +33,16 @@ starts.
 Add files one at a time, or **Scan Folder** to register hundreds at once — pick the channel and
 tags up front and every new file in the folder (subfolders too, if you like) gets them. Browse by
 folder or search by name, path or tag. Tag freely — **tavern**, **combat**, **storm** —
-and filter by tag or by channel (Music / Ambient). Files that go missing are flagged, never
-silently dropped. A **Manage Tags** panel renames or deletes a tag across every track at once.
-Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save as
-Macro** to create one without taking a hotbar slot.
+and filter by tag or by channel (Music / Environment). Files that go missing are flagged, never
+silently dropped. A **Manage Tags** panel renames, groups or deletes a tag across every track at
+once. Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save
+as Macro** to create one without taking a hotbar slot. **Add from Library** fills a playlist,
+soundboard or ambience: tick the rows you want, or drag them straight onto a card in the console.
 
 ### ▶️ Now Playing — a queue you can see
 
-Everything you fire lands in a visible queue. Play, stop, reorder, clear. No more wondering what is
-still running somewhere in the background.
+Every library track you play to the table lands in a visible queue. Play, stop, reorder, clear.
+No more wondering what is still running somewhere in the background.
 
 The transport bar at the bottom plays, pauses, skips and stops, and its progress bar can be
 clicked or dragged to seek. **Repeat** loops the current track. Music and ambience are each one at
@@ -59,20 +60,22 @@ Foundry playlists, so they behave exactly the way you already expect.
 
 ### 🔊 Soundboards — one-shot pads for the moment
 
-A grid of pads for stingers: a door slam, a wolf howl, a critical hit. Each pad has its own volume
-and loop setting, and can **fire on its own random interval** for background noise that never
-repeats the same way twice. Switch on **Duck Music** for a board and the music dips on every
-player's client while one of its pads plays, then comes back on its own. Drag a pad to the hotbar to turn it into a **macro**, drop it **on the
-map** to place it as an ambient sound — Foundry fills in the file and volume, you set the radius,
-and only players with a token in range hear it — or send a sound to **one single player**, so only
-they hear it.
+A grid of pads for stingers: a door slam, a wolf howl, a critical hit. Right-click a pad to set its
+name, icon, colour and volume, and whether it plays once, loops, or **fires on a random interval**
+— wait somewhere between a minimum and a maximum, then play again — for background noise that never
+repeats the same way twice. Show a board as a grid or a list, and give it a background colour of
+its own. Switch on **Duck Music** for a board and the music dips on every player's client while one
+of its pads plays, then comes back on its own. Drag a pad to the hotbar to turn it into a
+**macro**, drop it **on the map** to place it as an ambient sound — Foundry fills in the file and
+volume, you set the radius, and only players with a token in range hear it — or send a sound to
+**one single player**, so only they hear it.
 
 ![A soundboard of pads](docs/soundboard.webp)
 
 ### 🌧️ Ambiences — build a soundscape in layers
 
-Stack layers into one scene bed — rain, market, distant night — each with its own volume and loop.
-Any layer can be put on a random interval so a thunderclap fires now and then instead of looping.
+Stack layers into one scene bed — rain, market, distant night — each with its own volume, playing
+once, looping, or on a random interval, so a thunderclap fires now and then instead of looping.
 Timed layers don't all go off the moment the ambience starts — their first play is spread out —
 unless you tick **Also play when the ambience starts** for the ones that should. Play all, stop
 all, or mix live.
