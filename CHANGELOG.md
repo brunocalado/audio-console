@@ -1,3 +1,10 @@
+# 0.0.5
+
+### Fixed
+
+* **Library scrolling after playing a track.** Clicking a row in the Library tab no longer pins the list to that row: the mouse wheel and scrollbar move freely again, with no need to switch the filter to unstick it.
+
+
 # 0.0.4
 
 ### Changed
