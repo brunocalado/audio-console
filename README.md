@@ -153,7 +153,7 @@ every library file into the module's own folder — handy before moving machines
 Install via the Foundry VTT Module browser or use this manifest link:
 
 ```js
-https://raw.githubusercontent.com/brunocalado/audio-console/main/module.json
+https://github.com/brunocalado/audio-console/releases/latest/download/module.json
 ```
 
 ---
