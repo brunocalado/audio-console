@@ -7,7 +7,7 @@
  */
 
 import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PAD_VIEWS, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
-import { basenameOf, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
+import { basenameOf, fitPadGrid, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
 import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused } from "../data/repository.js";
 import { buildContainerFlags, buildEntryFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 import {
@@ -1126,11 +1126,10 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
   #fitPadGrid(grid) {
     const scroll = grid.closest("[data-pad-scroll]");
     if (!scroll) return;
-    const styles = getComputedStyle(grid);
-    const scrollStyles = getComputedStyle(scroll);
     // A list is one column of fixed-height rows, which the stylesheet owns (--ac-pad-row-height)
     // the same way it owns --ac-entry-height for the playlist rows.
     if (this.#padListView) {
+      const styles = getComputedStyle(grid);
       const rowHeight = parseFloat(styles.getPropertyValue("--ac-pad-row-height"));
       if (!(rowHeight > 0)) return;
       grid.style.setProperty("--ac-pad-columns", "1");
@@ -1138,19 +1137,9 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       this.#padList?.paint({ restoreScroll: true });
       return;
     }
-    const min = parseFloat(styles.getPropertyValue("--ac-pad-min"));
-    const gap = parseFloat(styles.columnGap);
-    // clientWidth already excludes the scrollbar, and .ac-pad-scroll reserves that gutter
-    // permanently so a board that grows past one screenful cannot start a resize loop.
-    const width = scroll.clientWidth
-      - parseFloat(scrollStyles.paddingLeft) - parseFloat(scrollStyles.paddingRight);
-    if (!(width > 0) || !(min > 0)) return;
-    const columns = Math.max(1, Math.floor((width + gap) / (min + gap)));
-    // Floor: a fractional pixel per tile times the column count pushes the last one onto its own row.
-    const size = Math.floor((width - (gap * (columns - 1))) / columns);
-    grid.style.setProperty("--ac-pad-size", `${size}px`);
-    grid.style.setProperty("--ac-pad-columns", `${columns}`);
-    this.#padMetrics = { columns, rowHeight: size + gap };
+    const fit = fitPadGrid(grid, scroll);
+    if (!fit) return;
+    this.#padMetrics = { columns: fit.columns, rowHeight: fit.size + fit.gap };
     this.#padList?.paint({ restoreScroll: true });
   }
 

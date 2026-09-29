@@ -300,7 +300,7 @@
       "EmptyBoard": "This soundboard has no pads yet.",
       "Notify": {
         "NoGM": "No Game Master is connected, so the pad cannot be played.",
-        "Failed": "The Game Master's client could not play that pad."
+        "Failed": "The Game Master's client did not play that pad. If their Foundry tab is in the background, the browser may have put it to sleep."
       }
     },
     "Ambience": {

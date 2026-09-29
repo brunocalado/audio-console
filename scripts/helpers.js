@@ -241,3 +241,31 @@ export function sanitizeUserTags(tags) {
 export function effectiveChannel(sound) {
   return sound?.channel || sound?.parent?.channel || "music";
 }
+
+/**
+ * Size a pad grid to its scroller: as many columns as fit at --ac-pad-min, then the tiles grown
+ * to close the gap to the right-hand edge exactly. Writes --ac-pad-size and --ac-pad-columns on
+ * the grid, which is what its definite tracks read (console-normal.css .ac-pad-grid). Shared by
+ * the console's grid and the players' shared-board window, so the two lay a board out alike.
+ * @param {HTMLElement} grid
+ * @param {HTMLElement} scroll The element that scrolls it; its padding is not grid width.
+ * @returns {{columns: number, size: number, gap: number}|null} Null when there is nothing to
+ *   measure yet — a detached or zero-width element.
+ */
+export function fitPadGrid(grid, scroll) {
+  const styles = getComputedStyle(grid);
+  const scrollStyles = getComputedStyle(scroll);
+  const min = parseFloat(styles.getPropertyValue("--ac-pad-min"));
+  const gap = parseFloat(styles.columnGap);
+  // clientWidth already excludes the scrollbar, and .ac-pad-scroll reserves that gutter
+  // permanently so a board that grows past one screenful cannot start a resize loop.
+  const width = scroll.clientWidth
+    - parseFloat(scrollStyles.paddingLeft) - parseFloat(scrollStyles.paddingRight);
+  if (!(width > 0) || !(min > 0)) return null;
+  const columns = Math.max(1, Math.floor((width + gap) / (min + gap)));
+  // Floor: a fractional pixel per tile times the column count pushes the last one onto its own row.
+  const size = Math.floor((width - (gap * (columns - 1))) / columns);
+  grid.style.setProperty("--ac-pad-size", `${size}px`);
+  grid.style.setProperty("--ac-pad-columns", `${columns}`);
+  return { columns, size, gap };
+}

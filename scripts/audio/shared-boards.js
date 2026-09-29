@@ -27,6 +27,11 @@ import { playEntry, stopEntry } from "./playback.js";
 
 const FIRE_QUERY = `${MODULE_ID}.fireSharedPad`;
 
+// Without a timeout a query waits for as long as the GM stays connected. A browser that has frozen
+// the GM's tab in the background keeps its socket open while running no script, so the press would
+// hang with no answer at all. The server enforces this (socket.io timeout) and rejects the query.
+const FIRE_TIMEOUT_MS = 5000;
+
 /**
  * Whether the console's share toggle reads as on — the board's default level, which is what the
  * toggle writes. Per-user grants from core's dialog do not light it.
@@ -69,7 +74,7 @@ export async function requestPad(board, sound) {
     return;
   }
   try {
-    await gm.query(FIRE_QUERY, { boardId: board.id, soundId: sound.id });
+    await gm.query(FIRE_QUERY, { boardId: board.id, soundId: sound.id }, { timeout: FIRE_TIMEOUT_MS });
   } catch (err) {
     console.error(`${MODULE_ID} | the GM refused a shared pad`, err);
     ui.notifications.warn("AUDIO_CONSOLE.Shared.Notify.Failed", { localize: true });

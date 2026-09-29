@@ -7,7 +7,7 @@
  */
 
 import { DEFAULT_PAD_ICON, MODULE_ID } from "../constants.js";
-import { basenameOf, humanizeName } from "../helpers.js";
+import { basenameOf, fitPadGrid, humanizeName } from "../helpers.js";
 import { getEntries } from "../data/repository.js";
 import { readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 import { onContainerChange, onPlaybackChange } from "../data/sync.js";
@@ -41,7 +41,8 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
       icon: "fa-solid fa-grip",
       resizable: true
     },
-    position: { width: 480, height: 420 },
+    // Room for the board list beside a four-pad-wide grid.
+    position: { width: 680, height: 460 },
     actions: {
       selectBoard: AudioConsoleSharedBoard.#onSelectBoard,
       firePad: AudioConsoleSharedBoard.#onFirePad
@@ -50,7 +51,11 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
 
   /** @override */
   static PARTS = {
-    board: { template: `modules/${MODULE_ID}/templates/normal/shared-board.hbs` }
+    // Every pad press re-renders (see _onFirstRender), so both lists keep their scroll across it.
+    board: {
+      template: `modules/${MODULE_ID}/templates/normal/shared-board.hbs`,
+      scrollable: [".ac-container-list", "[data-pad-scroll]"]
+    }
   };
 
   /** Open the window, or bring the open one forward. */
@@ -68,6 +73,9 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
 
   /** @type {Function[]} Unsubscribers for the two sync channels. */
   #unsubscribe = [];
+
+  /** @type {ResizeObserver|null} Re-fits the grid to the window; re-pointed on every render. */
+  #gridObserver = null;
 
   /** @returns {Playlist|null} */
   #board() {
@@ -111,16 +119,52 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
     this.#unsubscribe = [onContainerChange(redraw), onPlaybackChange(redraw)];
   }
 
+  /**
+   * The new grid takes the old one's measured tracks before core restores its scroll offset. Left
+   * on the one-column default until _onRender fits it, the offset is restored into a layout four
+   * times as tall, and the browser's scroll anchoring then carries it along as the columns snap
+   * back — measured at 1236px restored and 312px shown, rows away from where the player was.
+   * @override
+   */
+  _syncPartState(partId, newElement, priorElement, state) {
+    const prior = priorElement.querySelector("[data-pad-grid]");
+    const next = newElement.querySelector("[data-pad-grid]");
+    if (prior && next) next.style.cssText = prior.style.cssText;
+    super._syncPartState(partId, newElement, priorElement, state);
+  }
+
+  /**
+   * A render replaces the grid, so it is fitted at once — before the frame paints a one-column
+   * grid — and the observer follows the new one for resizes from then on.
+   * @override
+   */
+  _onRender(context, options) {
+    this.#gridObserver?.disconnect();
+    const scroll = this.element.querySelector("[data-pad-scroll]");
+    const grid = scroll?.querySelector("[data-pad-grid]");
+    if (!grid) return;
+    fitPadGrid(grid, scroll);
+    this.#gridObserver ??= new ResizeObserver(([entry]) => {
+      const scroller = entry.target;
+      fitPadGrid(scroller.querySelector("[data-pad-grid]"), scroller);
+    });
+    this.#gridObserver.observe(scroll);
+  }
+
   /** @override */
   _onClose(options) {
     for (const unsubscribe of this.#unsubscribe) unsubscribe();
     this.#unsubscribe = [];
+    this.#gridObserver?.disconnect();
   }
 
   /** @this {AudioConsoleSharedBoard} */
-  static #onSelectBoard(event, target) {
+  static async #onSelectBoard(event, target) {
     this.#boardId = target.dataset.boardId;
-    this.render();
+    await this.render();
+    // The kept offset belongs to the board just left; another board starts at its top.
+    const scroll = this.element.querySelector("[data-pad-scroll]");
+    if (scroll) scroll.scrollTop = 0;
   }
 
   /** @this {AudioConsoleSharedBoard} */

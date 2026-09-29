@@ -1,29 +1,30 @@
 {{!-- The player's shared-soundboard window (scripts/apps/shared-board.js). The same section, body
-      and pad markup as the GM's soundboard popout (soundboard.hbs), so it takes that popout's
-      styling whole; only the pad's fire button is here — every other control on a GM pad manages
-      the board. `active` is what shows a console section at all; here it is the only one. --}}
+      and pad markup as the GM's Soundboard section (soundboard.hbs), so it takes that styling
+      whole: the board list on the left — only when there is more than one board, and it scrolls
+      like the console's — and the pad grid on the right. Only the pad's fire button is here; every
+      other control on a GM pad manages the board. `active` is what shows a console section at
+      all; here it is the only one. --}}
 <section class="ac-section ac-soundboard active">
-
-    {{#if boards.length}}
-    <header class="ac-section-header">
-        <div class="ac-section-actions ac-shared-boards">
+    <div class="ac-soundboard-body">
+        {{#if boards.length}}
+        <div class="ac-container-list" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.ListLabel"}}">
             {{#each boards as |b|}}
-            <button type="button" class="ac-button{{#if b.active}} ac-button-primary{{/if}}"
-                    data-action="selectBoard" data-board-id="{{b.id}}"
-                    aria-pressed="{{#if b.active}}true{{else}}false{{/if}}">
-                <span inert>{{b.name}}</span>
-            </button>
+            <div class="ac-container-card-wrap{{#if b.active}} active{{/if}}" role="listitem">
+                <button type="button" class="ac-container-card{{#if b.active}} active{{/if}}"
+                        data-action="selectBoard" data-board-id="{{b.id}}"
+                        aria-pressed="{{#if b.active}}true{{else}}false{{/if}}">
+                    <span class="ac-container-name" title="{{b.name}}">{{b.name}}</span>
+                </button>
+            </div>
             {{/each}}
         </div>
-    </header>
-    {{/if}}
+        {{/if}}
 
-    <div class="ac-soundboard-body">
         <div class="ac-soundboard-detail">
             {{#if board}}
-            <div class="ac-pad-scroll{{#if board.color}} coloured{{/if}}"
+            <div class="ac-pad-scroll{{#if board.color}} coloured{{/if}}" data-pad-scroll
                  {{#if board.color}}style="--ac-board-color: {{board.color}};"{{/if}}>
-                <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}">
+                <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}" data-pad-grid>
                     {{#each pads as |pad|}}
                     <div class="ac-pad{{#if pad.playing}} playing{{/if}}{{#if pad.color}} coloured{{/if}}" role="listitem"
                          {{#if pad.color}}style="--ac-pad-color: {{pad.color}};"{{/if}}>
