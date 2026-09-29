@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { DEFAULT_PAD_ICON, MODULE_ID } from "../constants.js";
+import { CONTAINER_KINDS, DEFAULT_PAD_ICON, MODULE_ID } from "../constants.js";
 import { basenameOf, fitPadGrid, humanizeName } from "../helpers.js";
 import { getEntries } from "../data/repository.js";
 import { readContainerFlags, readEntryFlags } from "../data/flag-models.js";
@@ -51,7 +51,7 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
 
   /** @override */
   static PARTS = {
-    // Every pad press re-renders (see _onFirstRender), so both lists keep their scroll across it.
+    // A soundboard change re-renders (see _onFirstRender), so both lists keep their scroll across it.
     board: {
       template: `modules/${MODULE_ID}/templates/normal/shared-board.hbs`,
       scrollable: [".ac-container-list", "[data-pad-scroll]"]
@@ -109,14 +109,35 @@ export class AudioConsoleSharedBoard extends HandlebarsApplicationMixin(Applicat
   }
 
   /**
-   * Both channels redraw the whole window: at a player board's size a render is cheaper than
-   * keeping painted tiles in step by hand, which is what the GM's thousand-pad grid has to do.
-   * A board being shared or unshared arrives as a structural change like any other.
+   * Playback repaints the pads' playing state in place; only a structural change to a soundboard
+   * re-renders. Rendering on every playback change was the first version, and it made the window
+   * unusable while anything else in the world was playing: an ambience's random layers, a volume
+   * drag or a playlist advancing are all playback changes, each one replaced every button, and a
+   * click whose element is swapped between press and release never lands. A board being shared or
+   * unshared is a structural change to a soundboard, so it still redraws.
    * @override
    */
   _onFirstRender(context, options) {
-    const redraw = () => this.render();
-    this.#unsubscribe = [onContainerChange(redraw), onPlaybackChange(redraw)];
+    this.#unsubscribe = [
+      onContainerChange(kinds => {
+        if (!kinds || kinds.has(CONTAINER_KINDS.SOUNDBOARD)) this.render();
+      }),
+      onPlaybackChange(() => this.#paintPlayback())
+    ];
+  }
+
+  /** Bring each drawn pad's ring and accessible name in line with its sound. */
+  #paintPlayback() {
+    const board = this.#board();
+    if (!board || !this.element) return;
+    for (const pad of this.element.querySelectorAll(".ac-pad[data-sound-id]")) {
+      const playing = !!board.sounds.get(pad.dataset.soundId)?.playing;
+      if (pad.classList.contains("playing") === playing) continue;
+      pad.classList.toggle("playing", playing);
+      const fire = pad.querySelector(".ac-pad-fire");
+      const action = game.i18n.localize(`AUDIO_CONSOLE.Soundboard.Actions.${playing ? "Stop" : "Fire"}`);
+      fire.setAttribute("aria-label", `${action}: ${pad.querySelector(".ac-pad-name").textContent}`);
+    }
   }
 
   /**

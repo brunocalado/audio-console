@@ -27,7 +27,7 @@
                 <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}" data-pad-grid>
                     {{#each pads as |pad|}}
                     <div class="ac-pad{{#if pad.playing}} playing{{/if}}{{#if pad.color}} coloured{{/if}}" role="listitem"
-                         {{#if pad.color}}style="--ac-pad-color: {{pad.color}};"{{/if}}>
+                         data-sound-id="{{pad.id}}" {{#if pad.color}}style="--ac-pad-color: {{pad.color}};"{{/if}}>
                         <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="{{pad.id}}"
                                 aria-label="{{#if pad.playing}}{{localize "AUDIO_CONSOLE.Soundboard.Actions.Stop"}}{{else}}{{localize "AUDIO_CONSOLE.Soundboard.Actions.Fire"}}{{/if}}: {{pad.name}}"
                                 data-tooltip="{{pad.name}}">
