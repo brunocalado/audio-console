@@ -1,3 +1,10 @@
+# 0.0.6
+
+### Added
+
+* **Share soundboards with your players.** A new button on a board's toolbar shares it with the whole table. You can also give only some players **Observer** ownership of it in the Playlists sidebar. Players then get an Audio Console button of their own, which opens a window with the pads of every board shared with them. They can play and stop those pads, and do nothing else: no configuring, no editing, no library. Everyone hears what they fire, and you can stop it from the console like any other pad. The GM's Foundry tab has to be awake for their pads to play. If it is not, the player gets a notice within a few seconds instead of waiting with no answer.
+
+
 # 0.0.5
 
 ### Fixed
