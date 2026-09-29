@@ -641,6 +641,7 @@
      carried by colour alone. */
   .ac-icon-button.ac-favorite-toggle.active,
   .ac-icon-button.ac-duck-toggle.active,
+  .ac-icon-button.ac-share-toggle.active,
   .ac-icon-button.ac-board-color.active {
     color: var(--ac-accent);
   }
@@ -2089,6 +2090,23 @@
 
     .ac-section {
       grid-column: 1;
+    }
+  }
+
+  /* The player's shared-board window (shared-board.js): a popout whose grid is plain markup rather
+     than the virtual window, so nothing measures it — no --ac-pad-columns, no spacer, no translate.
+     auto-fill takes the column count instead, and the tracks stay the fixed --ac-pad-min square,
+     which is the definite-size rule .ac-pad-grid explains above. */
+  &.ac-shared-board {
+    .ac-pad-grid {
+      position: static;
+      will-change: auto;
+      grid-template-columns: repeat(auto-fill, var(--ac-pad-min));
+      grid-auto-rows: var(--ac-pad-min);
+    }
+
+    .ac-shared-boards {
+      flex-wrap: wrap;
     }
   }
 }

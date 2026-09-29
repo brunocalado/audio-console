@@ -49,6 +49,15 @@
                     aria-label="{{localize "AUDIO_CONSOLE.Soundboard.Actions.Duck"}}">
                 <i class="fa-solid fa-arrow-down-short-wide" inert></i>
             </button>
+            {{!-- Sharing: the players can fire this board's pads from a window of their own, and do
+                  nothing else with it (audio/shared-boards.js). Same toggle shape as Duck. --}}
+            <button type="button" class="ac-icon-button ac-share-toggle{{#if selectedSoundboard.shared}} active{{/if}}"
+                    data-action="toggleShare" data-section="soundboards"
+                    aria-pressed="{{#if selectedSoundboard.shared}}true{{else}}false{{/if}}"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Soundboard.Actions.ShareHint"}}"
+                    aria-label="{{localize "AUDIO_CONSOLE.Soundboard.Actions.Share"}}">
+                <i class="fa-solid fa-users" inert></i>
+            </button>
             <button type="button" class="ac-icon-button{{#if selectedSoundboard.color}} active{{/if}} ac-board-color"
                     data-action="boardColor" data-section="soundboards"
                     data-tooltip="{{localize "AUDIO_CONSOLE.Soundboard.Actions.BoardColor"}}"

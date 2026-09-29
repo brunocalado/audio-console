@@ -247,7 +247,9 @@
         "DuckHint": "While a pad from this board plays, every client's music channel is lowered, and comes back when the pad ends. Nothing about your levels is changed.",
         "ViewList": "Show as List",
         "ViewGrid": "Show as Grid",
-        "Configure": "Configure"
+        "Configure": "Configure",
+        "Share": "Share with Players",
+        "ShareHint": "Players can open this board from their own Audio Console button and play or stop its pads. They cannot change anything on it. To share with only some players, set its ownership to Observer for them in the Playlists sidebar."
       },
       "Notify": {
         "MacroCreated": "Created the macro \"{name}\" and put it on the hotbar.",
@@ -290,6 +292,15 @@
         "WhisperLabel": "Player",
         "WhisperHint": "Only the player you choose hears this, and so do you. The rest of the table does not.",
         "WhisperSubmit": "Send"
+      }
+    },
+    "Shared": {
+      "Title": "Soundboards",
+      "NoneShared": "The Game Master has not shared a soundboard with you.",
+      "EmptyBoard": "This soundboard has no pads yet.",
+      "Notify": {
+        "NoGM": "No Game Master is connected, so the pad cannot be played.",
+        "Failed": "The Game Master's client could not play that pad."
       }
     },
     "Ambience": {

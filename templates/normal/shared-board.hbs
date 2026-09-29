@@ -1,0 +1,48 @@
+{{!-- The player's shared-soundboard window (scripts/apps/shared-board.js). The same section, body
+      and pad markup as the GM's soundboard popout (soundboard.hbs), so it takes that popout's
+      styling whole; only the pad's fire button is here — every other control on a GM pad manages
+      the board. `active` is what shows a console section at all; here it is the only one. --}}
+<section class="ac-section ac-soundboard active">
+
+    {{#if boards.length}}
+    <header class="ac-section-header">
+        <div class="ac-section-actions ac-shared-boards">
+            {{#each boards as |b|}}
+            <button type="button" class="ac-button{{#if b.active}} ac-button-primary{{/if}}"
+                    data-action="selectBoard" data-board-id="{{b.id}}"
+                    aria-pressed="{{#if b.active}}true{{else}}false{{/if}}">
+                <span inert>{{b.name}}</span>
+            </button>
+            {{/each}}
+        </div>
+    </header>
+    {{/if}}
+
+    <div class="ac-soundboard-body">
+        <div class="ac-soundboard-detail">
+            {{#if board}}
+            <div class="ac-pad-scroll{{#if board.color}} coloured{{/if}}"
+                 {{#if board.color}}style="--ac-board-color: {{board.color}};"{{/if}}>
+                <div class="ac-pad-grid" role="list" aria-label="{{localize "AUDIO_CONSOLE.Soundboard.PadGridLabel"}}">
+                    {{#each pads as |pad|}}
+                    <div class="ac-pad{{#if pad.playing}} playing{{/if}}{{#if pad.color}} coloured{{/if}}" role="listitem"
+                         {{#if pad.color}}style="--ac-pad-color: {{pad.color}};"{{/if}}>
+                        <button type="button" class="ac-pad-fire" data-action="firePad" data-sound-id="{{pad.id}}"
+                                aria-label="{{#if pad.playing}}{{localize "AUDIO_CONSOLE.Soundboard.Actions.Stop"}}{{else}}{{localize "AUDIO_CONSOLE.Soundboard.Actions.Fire"}}{{/if}}: {{pad.name}}"
+                                data-tooltip="{{pad.name}}">
+                            <img class="ac-pad-icon" src="{{pad.icon}}" alt="" inert>
+                            <span class="ac-pad-name" inert>{{pad.name}}</span>
+                        </button>
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+            {{#unless pads.length}}
+            <p class="ac-empty-hint ac-pad-empty visible">{{localize "AUDIO_CONSOLE.Shared.EmptyBoard"}}</p>
+            {{/unless}}
+            {{else}}
+            <p class="ac-empty-hint ac-container-detail-empty">{{localize "AUDIO_CONSOLE.Shared.NoneShared"}}</p>
+            {{/if}}
+        </div>
+    </div>
+</section>

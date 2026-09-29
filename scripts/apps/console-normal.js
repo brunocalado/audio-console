@@ -22,6 +22,7 @@ import {
 import * as library from "../library/index.js";
 import * as playback from "../audio/playback.js";
 import * as whisper from "../audio/whisper.js";
+import { isShared, setShared } from "../audio/shared-boards.js";
 import { knownDuration, probeDuration } from "../audio/durations.js";
 import { AudioConsoleApplication } from "./console-base.js";
 import { AudioConsoleLibraryPicker } from "./library-picker.js";
@@ -170,6 +171,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       playPlaylistEntry: AudioConsoleNormal.#onPlayPlaylistEntry,
       // Soundboard
       toggleDuck: AudioConsoleNormal.#onToggleDuck,
+      toggleShare: AudioConsoleNormal.#onToggleShare,
       boardColor: AudioConsoleNormal.#onBoardColor,
       togglePadView: AudioConsoleNormal.#onTogglePadView,
       configurePad: AudioConsoleNormal.#onConfigurePad,
@@ -673,6 +675,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       name: selected.name,
       favorite: flags.favorite,
       duck: flags.duck,
+      shared: isShared(selected),
       color: flags.color,
       listView: this.#padListView,
       viewToggleLabel: this.#padListView
@@ -1849,6 +1852,20 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       flags: { [MODULE_ID]: buildContainerFlags({ ...flags, duck }) }
     }]);
     if (!updated) paintToggle(target, !duck);
+  }
+
+  /**
+   * Share the selected board with the players, or stop sharing it (audio/shared-boards.js).
+   * Painted at the click and confirmed by the write, like the duck toggle beside it.
+   * @this {AudioConsoleNormal}
+   */
+  static async #onToggleShare(event, target) {
+    const { container } = this.#sectionOf(target);
+    if (!isContainer(container)) return;
+    const shared = target.getAttribute("aria-pressed") !== "true";
+    paintToggle(target, shared);
+    const [updated] = await setShared(container, shared);
+    if (!updated) paintToggle(target, !shared);
   }
 
   /**

@@ -16,10 +16,21 @@ import { addLibraryEntries, importContainer, registerPack, runRegisteredPacks, s
 import { initRandomScheduler } from "./audio/random-scheduler.js";
 import { initDucking } from "./audio/ducking.js";
 import { initAutomation } from "./automation/engine.js";
+import { boardsSharedWith, registerSharedBoards } from "./audio/shared-boards.js";
+import { onContainerChange } from "./data/sync.js";
 import { AudioConsoleNormal } from "./apps/console-normal.js";
 
 /**
- * Open whichever mode the GM last left the console in. Compact is imported dynamically: most
+ * Whether this user has anything to open: the whole console for a GM, the shared-soundboard
+ * window for a player the GM has shared at least one board with.
+ * @returns {boolean}
+ */
+function canOpen() {
+  return !!game.user && (game.user.isGM || (boardsSharedWith(game.user).length > 0));
+}
+
+/**
+ * Open whichever mode the GM last left the console in; for a player, the shared soundboards. Compact is imported dynamically: most
  * launches are normal mode, and there is no reason to pay for the second class's module graph on
  * every entry-point registration.
  * @returns {Promise<void>}
@@ -27,9 +38,15 @@ import { AudioConsoleNormal } from "./apps/console-normal.js";
 async function openConsole() {
   // Checked here, not only on the two buttons: those decide whether a control is *drawn*, which
   // says nothing about `AudioConsole.Open()` typed into a macro by a player. The window would
-  // render empty for them anyway, since the library is loaded on `ready` for the GM alone.
+  // render empty for them anyway, since the library is loaded on `ready` for the GM alone. A player
+  // gets their own window instead, imported on demand like compact mode.
   if (!game.user?.isGM) {
-    ui.notifications.warn("AUDIO_CONSOLE.Controls.GMOnly", { localize: true });
+    if (!canOpen()) {
+      ui.notifications.warn("AUDIO_CONSOLE.Controls.GMOnly", { localize: true });
+      return;
+    }
+    const { AudioConsoleSharedBoard } = await import("./apps/shared-board.js");
+    AudioConsoleSharedBoard.open();
     return;
   }
   if (game.settings.get(MODULE_ID, SETTINGS.DISPLAY_MODE) === DISPLAY_MODES.COMPACT) {
@@ -40,16 +57,22 @@ async function openConsole() {
   AudioConsoleNormal.open();
 }
 
-// Both entry points are GM-gated, and both gate inside the callback rather than at registration:
-// during `init` there is no game.user yet. No keybinding, by design.
+// Both entry points are drawn for the GM, and for a player only while a board is shared with them;
+// both gate inside the callback rather than at registration: during `init` there is no game.user
+// yet. No keybinding, by design.
 function registerEntryPoints() {
   // Scene control button, in the `sounds` group where audio modules belong. Payload shape
   // confirmed live in a v14 client: `controls` is keyed by group name and each group's `tools` is
   // keyed by tool name — both objects, not arrays. `order: 90` lands after core's tools (1–5) and
   // before the third-party module already sitting at 95.
+  //
+  // A player's button goes in `tokens` instead: core draws the `sounds` group for the GM alone
+  // (SoundsLayer.prepareSceneControls, `visible: game.user.isGM`), and `tokens` is the group a
+  // player always has. The order lands it after core's tools there too.
   foundry.helpers.Hooks.on("getSceneControlButtons", controls => {
-    if (!game.user?.isGM || !controls.sounds) return;
-    controls.sounds.tools[MODULE_ID] = {
+    const group = game.user?.isGM ? controls.sounds : controls.tokens;
+    if (!canOpen() || !group) return;
+    group.tools[MODULE_ID] = {
       name: MODULE_ID,
       title: "AUDIO_CONSOLE.Controls.Open",
       icon: "fa-solid fa-sliders",
@@ -63,7 +86,7 @@ function registerEntryPoints() {
   // Playlists sidebar header button, so the module is discoverable from where its documents live.
   // No data-action here: that attribute would be picked up by the sidebar's own click delegation.
   foundry.helpers.Hooks.on("renderPlaylistDirectory", (app, element) => {
-    if (!game.user?.isGM) return;
+    if (!canOpen()) return;
     const actions = element.querySelector(".directory-header .header-actions");
     if (!actions || actions.querySelector(`.${MODULE_ID}-open`)) return;
     const button = document.createElement("button");
@@ -80,6 +103,7 @@ foundry.helpers.Hooks.once("init", () => {
   registerSync();
   registerHotbarDrop();
   registerEntryPoints();
+  registerSharedBoards();
   // The macro-facing surface. A global rather than the module's `api` object because this exists
   // to be typed by hand into a one-line script macro, and openConsole already carries both the GM
   // check and the normal/compact preference. The rest is the setup API (api.js, docs/API.md);
@@ -109,5 +133,16 @@ foundry.helpers.Hooks.once("ready", async () => {
     // Last: a pack's containers are ordinary documents once built, and the automation rules that
     // may name them resolve on their first evaluation either way.
     await runRegisteredPacks();
+  } else {
+    // The player's two entry points appear and disappear with sharing. Neither redraws on a
+    // playlist change by itself, so they are told when the answer to canOpen() flips — and only
+    // then, since soundboards change far more often than their sharing does.
+    let could = canOpen();
+    onContainerChange(() => {
+      if (canOpen() === could) return;
+      could = !could;
+      ui.controls.render({ reset: true });
+      ui.playlists.render();
+    });
   }
 });
