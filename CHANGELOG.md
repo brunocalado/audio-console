@@ -1,3 +1,22 @@
+# 0.0.7
+
+### Added
+
+* **Add to a Playlist from the Library.** A new button on each Library row sends the track to one of your playlists, or to a new one you name on the spot. The playlist you used last is offered first, so sending several tracks to the same one is quick.
+* **Save Now Playing as a playlist.** A new **Save as Playlist** button at the top of Now Playing keeps the queue's tracks, in the same order, as a new playlist. The queue itself is still emptied every time the world loads.
+
+### Changed
+
+* The Library row's **Play** button is gone. Clicking the row already plays the track.
+* The **Audio Console** button in the Playlists sidebar now sits on its own row, above Create Playlist and Create Folder.
+
+### Fixed
+
+* **The Playlists sidebar button flickered and ignored clicks** while an ambience was playing. Its random layers redraw the sidebar about once a second, and the button was rebuilt each time.
+* **The button vanished from the sidebar** after you right-clicked the Playlists tab to pop it out. The popped-out window and the sidebar now each have their own.
+* **Add from Library showed the end of the results** when you searched after scrolling the list. Changing the search, tags or channels now brings the list back to the top, as the Library tab does.
+
+
 # 0.0.6
 
 ### Added

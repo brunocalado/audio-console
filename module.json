@@ -2,8 +2,7 @@
   "id": "audio-console",
   "title": "Audio Console",
   "description": "Music library, playlists, soundboard, and ambience mixer for Foundry VTT — built on native Playlist documents and the native audio API, with a library that follows you across worlds.",
-  "version": "0.0.6",
-  
+  "version": "0.0.7",
   "authors": [
     {
       "name": "Mestre Digital",
@@ -11,19 +10,44 @@
       "flags": {}
     }
   ],
-  
   "compatibility": {
     "minimum": "14",
     "verified": "14"
   },
-  
-  "esmodules": ["scripts/main.js"],
-  "styles": ["styles/base.css", "styles/dialogs.css", "styles/console-normal.css", "styles/console-compact.css", "styles/library-picker.css", "styles/settings-library.css", "styles/tag-manager.css"],
-  
-  "languages": [{ "lang": "en", "name": "English", "path": "lang/en.json" }],
-  
-  "socket": false,
-
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    {
+      "src": "styles/base.css"
+    },
+    {
+      "src": "styles/dialogs.css"
+    },
+    {
+      "src": "styles/console-normal.css"
+    },
+    {
+      "src": "styles/console-compact.css"
+    },
+    {
+      "src": "styles/library-picker.css"
+    },
+    {
+      "src": "styles/settings-library.css"
+    },
+    {
+      "src": "styles/tag-manager.css"
+    }
+  ],
+  "languages": [
+    {
+      "lang": "en",
+      "name": "English",
+      "path": "lang/en.json",
+      "flags": {}
+    }
+  ],
   "media": [
     {
       "type": "setup",
@@ -33,8 +57,8 @@
       "flags": {}
     }
   ],
-  
   "url": "https://github.com/brunocalado/audio-console",
   "manifest": "https://github.com/brunocalado/audio-console/releases/latest/download/module.json",
-  "download": "https://github.com/brunocalado/audio-console/releases/latest/download/module.zip"
+  "download": "https://github.com/brunocalado/audio-console/releases/download/0.0.6/module.zip",
+  "flags": {}
 }
