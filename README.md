@@ -35,14 +35,17 @@ tags up front and every new file in the folder (subfolders too, if you like) get
 folder or search by name, path or tag. Tag freely — **tavern**, **combat**, **storm** —
 and filter by tag or by channel (Music / Environment). Files that go missing are flagged, never
 silently dropped. A **Manage Tags** panel renames, groups or deletes a tag across every track at
-once. Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save
+once. Click a track to play it, and **Add to a Playlist** sends it to one of your playlists — or to
+a new one — without leaving the library. Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save
 as Macro** to create one without taking a hotbar slot. **Add from Library** fills a playlist,
 soundboard or ambience: tick the rows you want, or drag them straight onto a card in the console.
 
 ### ▶️ Now Playing — a queue you can see
 
 Every library track you play to the table lands in a visible queue. Play, stop, reorder, clear.
-No more wondering what is still running somewhere in the background.
+No more wondering what is still running somewhere in the background. The queue is emptied every
+time the world loads, so when a session's run of tracks is worth keeping, **Save as Playlist**
+turns it into a playlist, in the same order.
 
 The transport bar at the bottom plays, pauses, skips and stops, and its progress bar can be
 clicked or dragged to seek. **Repeat** loops the current track. Music and ambience are each one at
@@ -117,7 +120,7 @@ soundboard or ambience in a small window of its own.
 # 🚀 Getting started
 
 1. **Enable the module** in your world. An **Audio Console** button appears in the
-   Sounds scene controls and in the Playlists sidebar header. Players never see the console; they
+   Sounds scene controls and at the top of the Playlists sidebar. Players never see the console; they
    only get a button of their own once you share a soundboard with them.
 2. **Fill the library.** Open the **Library** section and use **Add** for a single file, or
    **Scan Folder** to register a whole folder at once.
