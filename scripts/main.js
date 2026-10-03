@@ -85,16 +85,31 @@ function registerEntryPoints() {
 
   // Playlists sidebar header button, so the module is discoverable from where its documents live.
   // No data-action here: that attribute would be picked up by the sidebar's own click delegation.
+  //
+  // A row of its own above core's header, not a button inside it, and one element for the life of
+  // the client. Core re-renders the whole directory on every Playlist update, replacing each part
+  // element — and a playing ambience fires its random layers as updates about once a second. A
+  // button inside the header part was rebuilt every time: it flickered under the pointer, and a
+  // click whose press and release straddled a render never fired (Chrome drops it even when the same
+  // node is put back). A sibling of the parts is never touched by a render.
+  let openRow = null;
   foundry.helpers.Hooks.on("renderPlaylistDirectory", (app, element) => {
-    if (!canOpen()) return;
-    const actions = element.querySelector(".directory-header .header-actions");
-    if (!actions || actions.querySelector(`.${MODULE_ID}-open`)) return;
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = `${MODULE_ID}-open`;
-    button.innerHTML = `<i class="fa-solid fa-sliders" inert></i><span inert>${foundry.utils.escapeHTML(game.i18n.localize("AUDIO_CONSOLE.Controls.Open"))}</span>`;
-    button.addEventListener("click", () => openConsole());
-    actions.append(button);
+    if (!canOpen()) {
+      openRow?.remove();
+      return;
+    }
+    if (openRow?.parentElement === element) return;
+    if (!openRow) {
+      openRow = document.createElement("div");
+      openRow.className = `${MODULE_ID}-open-row action-buttons flexrow`;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `${MODULE_ID}-open`;
+      button.innerHTML = `<i class="fa-solid fa-sliders" inert></i><span inert>${foundry.utils.escapeHTML(game.i18n.localize("AUDIO_CONSOLE.Controls.Open"))}</span>`;
+      button.addEventListener("click", () => openConsole());
+      openRow.append(button);
+    }
+    element.prepend(openRow);
   });
 }
 

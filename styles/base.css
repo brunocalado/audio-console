@@ -707,3 +707,13 @@
     animation-duration: 0ms !important;
   }
 }
+
+/* The Playlists sidebar's "Audio Console" row (main.js). It sits in core's sidebar, outside any
+   window of ours, so it cannot live under .audio-console — that class paints the console's own
+   surface. The module-id prefix on the class is what keeps it from reaching anything else. Core
+   pads its header row from .directory-header, which this row is a sibling of rather than a child,
+   so the same spacing is restated here: the header's own top margin separates the two. */
+.audio-console-open-row {
+  margin-top: 8px;
+  padding: 0 8px;
+}
