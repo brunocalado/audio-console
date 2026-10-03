@@ -50,8 +50,8 @@
         "Add": "Add",
         "ScanFolder": "Scan Folder",
         "Preview": "Preview (only you hear this)",
-        "PlayToTable": "Play to the Table",
         "AddToQueue": "Add to Now Playing",
+        "AddToPlaylist": "Add to a Playlist",
         "Drag": "Drag onto the Scene for an Ambient Sound, or onto the Hotbar for a Macro",
         "Macro": "Save as Macro",
         "MacroHint": "Create a macro for this track in the world, without using a hotbar slot.",
@@ -221,7 +221,11 @@
         "DeletePermanent": "Delete Permanently",
         "DeletePermanentHint": "Deletes it, and the track entries inside it, from this world.",
         "DeleteNotice": "Both options act on Foundry documents only. No audio file is moved, renamed or deleted, and the library keeps every entry.",
-        "DeleteCancel": "Cancel"
+        "DeleteCancel": "Cancel",
+        "AddToTitle": "Add \"{name}\" to a Playlist",
+        "TargetLabel": "Playlist",
+        "TargetNew": "New Playlist…",
+        "AddToSubmit": "Add"
       },
       "Notify": {
         "AddedTo": "\"{name}\" added to \"{container}\".",
@@ -335,17 +339,23 @@
       "Missing": "The Now Playing queue is missing. It is recreated the next time this world loads.",
       "Paused": "Paused",
       "ClearHint": "Empty the queue. Nothing is removed from the library.",
+      "SaveHint": "Keep these tracks, in this order, as a new playlist. Now Playing itself is emptied every time the world loads.",
       "Actions": {
         "Play": "Play",
         "Stop": "Stop",
         "Clear": "Clear",
+        "SaveAsPlaylist": "Save as Playlist",
         "PlayEntry": "Play This Track",
         "RemoveEntry": "Remove from Now Playing"
       },
       "Dialogs": {
         "ClearTitle": "Clear Now Playing",
         "ClearQuestion": "Remove all {count} tracks from the Now Playing queue?",
-        "ClearNotice": "This empties the queue only. Nothing is removed from the library, and nothing on disk is touched."
+        "ClearNotice": "This empties the queue only. Nothing is removed from the library, and nothing on disk is touched.",
+        "SaveTitle": "Save Now Playing as a Playlist"
+      },
+      "Notify": {
+        "Saved": "Saved {count} tracks as \"{name}\"."
       }
     },
     "Automation": {

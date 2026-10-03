@@ -312,8 +312,8 @@
     flex: 1;
     flex-direction: column;
     min-height: 0;
-    /* The actions column is sized for the seven row buttons it holds — drag grip, preview, play to
-       table, add to queue, save as macro, edit, remove — so a hovered row cannot widen and shove
+    /* The actions column is sized for the seven row buttons it holds — drag grip, preview, add to
+       queue, add to a playlist, save as macro, edit, remove — so a hovered row cannot widen and shove
        the others. 7 x 26px plus six 2px gaps is 194px; the rest is slack. The channel column
        is sized to its own header word rather than to the 26px button it holds: it is a field, and
        a *named* column is what stops that button reading as one more row action that wandered out

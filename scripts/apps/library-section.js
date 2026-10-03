@@ -6,9 +6,11 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { AUDIO_MODES, CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, DEFAULT_CHANNEL, MODULE_ID, SETTINGS, SOUND_DRAG_MARKER } from "../constants.js";
+import { AUDIO_MODES, CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_CHANNEL, MODULE_ID, SECTIONS, SETTINGS, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, humanizeName, normalizePath } from "../helpers.js";
 import { createSoundMacro, soundForEntry } from "../data/sound-macros.js";
+import { getContainers, getEntries } from "../data/repository.js";
+import { createEntries } from "../data/mutations.js";
 import * as library from "../library/index.js";
 import * as playback from "../audio/playback.js";
 import * as preview from "../audio/preview.js";
@@ -17,8 +19,10 @@ import {
   confirmRemoveEntry,
   confirmRemoveFolder,
   promptEditEntry,
+  promptContainerName,
   promptNewEntry,
-  promptScanOptions
+  promptScanOptions,
+  promptTargetPlaylist
 } from "./dialogs.js";
 
 // The Library tab: the virtualised catalogue table, its filters, the folder tree and every action
@@ -67,6 +71,13 @@ export class LibrarySection {
 
   /** Folder paths currently collapsed. Session-only, like #filters. */
   #collapsedFolders = new Set();
+
+  /**
+   * The playlist "Add to a Playlist" last sent a track to, offered first next time: a GM filling
+   * one usually sends several tracks to it in a row. Session-only.
+   * @type {string|null}
+   */
+  #lastPlaylistId = null;
 
   #focusedIndex = -1;
   #scrollTop = 0;
@@ -241,8 +252,8 @@ export class LibrarySection {
         channel, game.i18n.localize(CHANNEL_LABEL_KEYS[channel])
       ])),
       preview: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.Preview"),
-      play: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.PlayToTable"),
       queue: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.AddToQueue"),
+      toPlaylist: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.AddToPlaylist"),
       drag: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.Drag"),
       macro: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.Macro"),
       macroHint: game.i18n.localize("AUDIO_CONSOLE.Library.Actions.MacroHint"),
@@ -310,8 +321,9 @@ export class LibrarySection {
     const missingBadge = entry.missing
       ? `<span class="ac-missing-badge" data-tooltip="${e(labels.missingHint)}">${e(labels.missingLabel)}</span> ` : "";
     const gutter = renderTreeGutter(treeRow.depth, true, treeRow.last);
-    // data-action on the row makes a plain click anywhere in it play the track; the buttons inside
-    // are the nearer ancestor to their own click and win. The grip has no action: it is the only
+    // data-action on the row makes a plain click anywhere in it play the track — which is why the
+    // row has no Play button of its own. The buttons inside are the nearer ancestor to their own
+    // click and win. The grip has no action: it is the only
     // draggable thing on the row, so a click-and-twitch cannot turn a play into a drag.
     const boundary = treeRow.last ? " ac-row-boundary" : "";
     return `<div class="ac-row${entry.missing ? " missing" : ""}${boundary}" role="row" tabindex="-1" aria-rowindex="${index + 2}" data-index="${index}" data-path="${path}" data-action="activateEntry">
@@ -324,8 +336,8 @@ export class LibrarySection {
       <span class="ac-cell ac-cell-actions" role="gridcell">
         <button type="button" class="ac-row-action ac-row-grip" draggable="true" data-entry-grip aria-label="${e(labels.drag)}" data-tooltip="${e(labels.drag)}"><i class="fa-solid fa-up-down-left-right" inert></i></button>
         <button type="button" class="ac-row-action" data-action="previewEntry" aria-label="${e(labels.preview)}" data-tooltip="${e(labels.preview)}"><i class="fa-solid fa-headphones" inert></i></button>
-        <button type="button" class="ac-row-action" data-action="playEntry" aria-label="${e(labels.play)}" data-tooltip="${e(labels.play)}"><i class="fa-solid fa-play" inert></i></button>
         <button type="button" class="ac-row-action" data-action="queueEntry" aria-label="${e(labels.queue)}" data-tooltip="${e(labels.queue)}"><i class="fa-solid fa-plus" inert></i></button>
+        <button type="button" class="ac-row-action" data-action="addEntryToPlaylist" aria-label="${e(labels.toPlaylist)}" data-tooltip="${e(labels.toPlaylist)}"><i class="fa-solid fa-list-ol" inert></i></button>
         <button type="button" class="ac-row-action" data-action="createEntryMacro" aria-label="${e(labels.macro)}" data-tooltip="${e(labels.macroHint)}"><i class="fa-solid fa-scroll" inert></i></button>
         <button type="button" class="ac-row-action" data-action="editEntry" aria-label="${e(labels.edit)}" data-tooltip="${e(labels.edit)}"><i class="fa-solid fa-pen-to-square" inert></i></button>
         <button type="button" class="ac-row-action" data-action="removeEntry" aria-label="${e(labels.remove)}" data-tooltip="${e(labels.remove)}"><i class="fa-solid fa-trash" inert></i></button>
@@ -677,17 +689,51 @@ export class LibrarySection {
     if (entry) await this.#previewEntry(entry);
   }
 
-  async onPlayEntry(event, target) {
-    const entry = this.#entryFor(target);
-    if (entry) await this.#playEntryToTable(entry);
-  }
-
   /** Append without playing. The queue is SEQUENTIAL, so whatever is playing advances into it. */
   async onQueueEntry(event, target) {
     const entry = this.#entryFor(target);
     if (!entry) return;
     const sound = await playback.appendToQueue(entry);
     if (sound) ui.notifications.info(game.i18n.format("AUDIO_CONSOLE.Transport.Notify.Queued", { name: sound.name }));
+  }
+
+  /**
+   * Into a playlist without opening it: pick one, or make one. With none yet, the choice is skipped
+   * and the GM goes straight to naming the first. A track the playlist already holds is not added
+   * twice, the same rule the sections' own Add follows.
+   */
+  async onAddEntryToPlaylist(event, target) {
+    const entry = this.#entryFor(target);
+    if (!entry) return;
+    const playlists = getContainers(CONTAINER_KINDS.PLAYLIST);
+    let choice = "";
+    if (playlists.length) {
+      choice = await promptTargetPlaylist({
+        name: entry.name,
+        playlists: playlists.map(playlist => ({ id: playlist.id, name: playlist.name })),
+        selected: this.#lastPlaylistId
+      });
+      if (choice === null) return;
+    }
+    let playlist = playlists.find(p => p.id === choice);
+    if (!playlist) {
+      const name = await promptContainerName({
+        title: game.i18n.localize("AUDIO_CONSOLE.Playlists.Dialogs.CreateTitle"),
+        submitLabel: game.i18n.localize("AUDIO_CONSOLE.Playlists.Dialogs.CreateSubmit")
+      });
+      if (name === null) return;
+      playlist = await this.#app.createContainerIn(SECTIONS.PLAYLISTS, name);
+      if (!playlist) return;
+    }
+    this.#lastPlaylistId = playlist.id;
+    if (getEntries(playlist).some(sound => normalizePath(sound.path) === entry.path)) {
+      ui.notifications.info(game.i18n.format("AUDIO_CONSOLE.Containers.Notify.AlreadyThere",
+        { name: entry.name, container: playlist.name }));
+      return;
+    }
+    await createEntries(playlist, [playback.soundSpecFor(entry)]);
+    ui.notifications.info(game.i18n.format("AUDIO_CONSOLE.Playlists.Notify.AddedTo",
+      { name: entry.name, container: playlist.name }));
   }
 
   /** Name, path, channel and tags for a row already in the catalogue — the add dialog, reopened. */
@@ -780,7 +826,7 @@ export const LIBRARY_ACTIONS = Object.fromEntries([
   ["removeEntry", "onRemoveEntry"],
   ["activateEntry", "onActivateEntry"],
   ["previewEntry", "onPreviewEntry"],
-  ["playEntry", "onPlayEntry"],
   ["queueEntry", "onQueueEntry"],
+  ["addEntryToPlaylist", "onAddEntryToPlaylist"],
   ["createEntryMacro", "onCreateEntryMacro"]
 ].map(([action, method]) => [action, function(event, target) { return this.librarySection[method](event, target); }]));

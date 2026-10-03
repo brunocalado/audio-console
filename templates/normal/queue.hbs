@@ -20,6 +20,11 @@
                 <span inert>{{localize "AUDIO_CONSOLE.Queue.Actions.Play"}}</span>
             </button>
             {{/if}}
+            <button type="button" class="ac-button" data-action="saveQueueAsPlaylist"
+                    data-tooltip="{{localize "AUDIO_CONSOLE.Queue.SaveHint"}}" {{#unless queue.count}}disabled{{/unless}}>
+                <i class="fa-solid fa-list-ol" inert></i>
+                <span inert>{{localize "AUDIO_CONSOLE.Queue.Actions.SaveAsPlaylist"}}</span>
+            </button>
             <button type="button" class="ac-button ac-button-quiet" data-action="clearQueue"
                     data-tooltip="{{localize "AUDIO_CONSOLE.Queue.ClearHint"}}">
                 <i class="fa-solid fa-trash" inert></i>

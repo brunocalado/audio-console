@@ -763,6 +763,36 @@ export async function promptContainerName({ title, submitLabel, name = "" }) {
 }
 
 /**
+ * Which playlist a Library track goes into. The last option makes a new one; it is named in
+ * promptContainerName afterwards, the same dialog the Playlists section's New button opens,
+ * rather than in a second field here that would only matter for one of the options.
+ * @param {{name: string, playlists: {id: string, name: string}[], selected?: string|null}} options
+ *   `name` is the track's.
+ * @returns {Promise<string|null>} A playlist id, "" for a new playlist, or null if dismissed.
+ */
+export async function promptTargetPlaylist({ name, playlists, selected = null }) {
+  const options = playlists.map(p => `<option value="${p.id}"${p.id === selected ? " selected" : ""}>${escapeHTML(p.name)}</option>`).join("");
+  const result = await DialogV2.input({
+    window: { title: t("AUDIO_CONSOLE.Playlists.Dialogs.AddToTitle", { name }), icon: "fa-solid fa-list-ol" },
+    classes: DIALOG_CLASSES,
+    position: { width: 420 },
+    content: `
+      <div class="form-group">
+        <label for="ac-target-playlist">${escapeHTML(t("AUDIO_CONSOLE.Playlists.Dialogs.TargetLabel"))}</label>
+        <div class="form-fields">
+          <select id="ac-target-playlist" name="playlist">
+            ${options}
+            <option value="">${escapeHTML(t("AUDIO_CONSOLE.Playlists.Dialogs.TargetNew"))}</option>
+          </select>
+        </div>
+      </div>`,
+    ok: { label: t("AUDIO_CONSOLE.Playlists.Dialogs.AddToSubmit"), icon: "fa-solid fa-check" }
+  });
+  if (!result) return null;
+  return String(result.playlist ?? "");
+}
+
+/**
  * The three-way choice in this module's deletion semantics — coherent only for containers, never
  * for an entry or a library row. Each option's consequence is spelled out rather than left to the
  * button label alone, the same rule confirmRemoveEntry follows.

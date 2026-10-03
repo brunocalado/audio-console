@@ -184,6 +184,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       playQueue: AudioConsoleNormal.#onPlayQueue,
       stopQueue: AudioConsoleNormal.#onStopQueue,
       clearQueue: AudioConsoleNormal.#onClearQueue,
+      saveQueueAsPlaylist: AudioConsoleNormal.#onSaveQueueAsPlaylist,
       playQueueEntry: AudioConsoleNormal.#onPlayQueueEntry,
       removeQueueEntry: AudioConsoleNormal.#onRemoveQueueEntry,
       ...AUTOMATION_ACTIONS
@@ -1355,7 +1356,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       submitLabel: game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.CreateSubmit`)
     });
     if (name === null) return;
-    const created = await this.#createContainerIn(section, name);
+    const created = await this.createContainerIn(section, name);
     if (!created) return;
     this.#selectContainer(section, created.id);
     await this.render({ parts: [spec.part] });
@@ -1363,16 +1364,19 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
 
   /**
    * A new container in a section, named by the GM or — left blank — by the next free default.
+   * Public because the Library tab's "Add to a Playlist" makes one too, and a container made there
+   * has to land in the same folder under the same naming rule as one made from the section.
    * @param {string} section A SECTIONS key.
    * @param {string} [name]
+   * @param {object[]} [sounds] Entries created with it, in the shape createEntries() takes.
    * @returns {Promise<Playlist|null>}
    */
-  async #createContainerIn(section, name) {
+  async createContainerIn(section, name, sounds = []) {
     const spec = CONTAINER_SECTIONS[section];
     name ||= nextDefaultName(game.i18n.localize(`AUDIO_CONSOLE.${spec.i18n}.Dialogs.DefaultName`),
       getContainers(spec.kind).map(c => c.name));
     const folder = getSectionFolder(section);
-    const [created] = await createContainers([{ name, kind: spec.kind, folder: folder?.id ?? null }]);
+    const [created] = await createContainers([{ name, kind: spec.kind, folder: folder?.id ?? null, sounds }]);
     return created ?? null;
   }
 
@@ -1687,7 +1691,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     const spec = CONTAINER_SECTIONS[section];
     if (!spec || !paths.length) return;
     const id = event.target.closest("[data-container-id]")?.dataset.containerId;
-    const container = id ? game.playlists.get(id) : await this.#createContainerIn(section);
+    const container = id ? game.playlists.get(id) : await this.createContainerIn(section);
     if (!isContainer(container)) return;
     await this.#addLibraryPaths(container, paths);
     this.#selectContainer(section, container.id);
@@ -1795,6 +1799,31 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     if (!count) return;
     if (!await confirmClearQueue(count)) return;
     await playback.clearQueue();
+  }
+
+  /**
+   * Now Playing kept as a playlist of its own. The queue is emptied on every world load, so this is
+   * how a run of tracks the GM built up during a session outlives it. Entries are copied as they
+   * stand in the queue — order, name, volume and channel — not re-read from the library, which
+   * may no longer hold some of them.
+   * @this {AudioConsoleNormal}
+   */
+  static async #onSaveQueueAsPlaylist() {
+    const sounds = getEntries(getQueue());
+    if (!sounds.length) return;
+    const name = await promptContainerName({
+      title: game.i18n.localize("AUDIO_CONSOLE.Queue.Dialogs.SaveTitle"),
+      submitLabel: game.i18n.localize("AUDIO_CONSOLE.Playlists.Dialogs.CreateSubmit")
+    });
+    if (name === null) return;
+    const created = await this.createContainerIn(SECTIONS.PLAYLISTS, name, sounds.map(sound => ({
+      name: sound.name, path: sound.path, volume: sound.volume, channel: sound.channel
+    })));
+    if (!created) return;
+    // Selected, so the Playlists tab opens on it — but not switched to: the GM is still running
+    // the session from here.
+    this.#selectContainer(SECTIONS.PLAYLISTS, created.id);
+    ui.notifications.info(game.i18n.format("AUDIO_CONSOLE.Queue.Notify.Saved", { name: created.name, count: sounds.length }));
   }
 
   /**
