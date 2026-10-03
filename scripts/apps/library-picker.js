@@ -202,10 +202,11 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     }
     // The tag chips offered are the candidates' own vocabulary, so an open panel needs the full
     // render. Otherwise only the title and the rows change, and a full render would repaint the
-    // whole window for them after every drop.
-    if (this.#tagPanelOpen) return void this.render({ window: { title: this.title } });
+    // whole window for them after every drop. The offset stays either way: a GM filling several
+    // containers from one folder is part-way down it.
+    if (this.#tagPanelOpen) return void this.render({ window: { title: this.title }, keepScroll: true });
     this.window.title.textContent = this.title;
-    this.#applyFilter();
+    this.#applyFilter({ resetScroll: false });
   }
 
   /* -------------------------------------------- */
@@ -298,7 +299,10 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#rowsEl.addEventListener("dragstart", this.#onRowDragStart);
     this.element.querySelector("[data-picker-search]")?.addEventListener("input", this.#onSearchInput);
 
-    this.#applyFilter();
+    // Every re-render but the tag panel's own toggle is a filter change, and after a filter change
+    // the old offset points into a different list: kept, a GM who had scrolled before searching
+    // was shown the tail of the results with the best matches above the fold.
+    this.#applyFilter({ resetScroll: !options.keepScroll });
   }
 
   /**
@@ -360,19 +364,26 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
       && matchesTags(entry) && this.#matchesText(entry));
   }
 
-  /** Rebuild the row set from the candidate pool and repaint. */
-  #applyFilter() {
+  /**
+   * Rebuild the row set from the candidate pool and repaint. Back to the top by default, as the
+   * Library table does: once the set has changed, a preserved offset points at a different track.
+   * @param {{resetScroll?: boolean}} [options]
+   */
+  #applyFilter({ resetScroll = true } = {}) {
     if (!this.#tableEl) return;
     this.#matched = this.#matchingEntries();
     this.#rows = flattenFolderTree(buildFolderTree(this.#matched), this.#collapsedFolders);
-    this.#paintRows();
+    this.#paintRows({ resetScroll });
     this.#updateStatus();
   }
 
-  /** Hand the new row set to the scroll window, which paints only what is on screen. */
-  #paintRows() {
+  /**
+   * Hand the new row set to the scroll window, which paints only what is on screen.
+   * @param {{resetScroll?: boolean}} [options]
+   */
+  #paintRows({ resetScroll = false } = {}) {
     this.#folderTally = this.#tallyFolders();
-    this.#virtual.setCount(this.#rows.length);
+    this.#virtual.setCount(this.#rows.length, { resetScroll });
 
     // Two different empty states, and they need different words: an empty pool means everything in
     // the library is already in this container, while an empty result means the filters are too
@@ -602,7 +613,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   /** @this {AudioConsoleLibraryPicker} */
   static async #onToggleTagPanel() {
     this.#tagPanelOpen = !this.#tagPanelOpen;
-    await this.render();
+    await this.render({ keepScroll: true });
   }
 
   /** @this {AudioConsoleLibraryPicker} */
@@ -633,7 +644,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     const path = target.dataset.folderPath;
     if (this.#collapsedFolders.has(path)) this.#collapsedFolders.delete(path);
     else this.#collapsedFolders.add(path);
-    this.#applyFilter();
+    this.#applyFilter({ resetScroll: false });
   }
 
   /**
