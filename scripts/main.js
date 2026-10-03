@@ -92,24 +92,32 @@ function registerEntryPoints() {
   // button inside the header part was rebuilt every time: it flickered under the pointer, and a
   // click whose press and release straddled a render never fired (Chrome drops it even when the same
   // node is put back). A sibling of the parts is never touched by a render.
-  let openRow = null;
+  //
+  // One row per directory, not per client: right-clicking the sidebar tab pops out a second
+  // PlaylistDirectory instance (AbstractSidebarTab#renderPopout), and a single shared row was moved
+  // into it and taken away from the sidebar. Anchored on the header part rather than on `element`,
+  // which for the framed popout is the window itself, not the container the parts live in.
+  const openRows = new WeakMap();
   foundry.helpers.Hooks.on("renderPlaylistDirectory", (app, element) => {
+    let row = openRows.get(app);
     if (!canOpen()) {
-      openRow?.remove();
+      row?.remove();
       return;
     }
-    if (openRow?.parentElement === element) return;
-    if (!openRow) {
-      openRow = document.createElement("div");
-      openRow.className = `${MODULE_ID}-open-row action-buttons flexrow`;
+    const header = element.querySelector(".directory-header");
+    if (!header || (row?.parentElement === header.parentElement)) return;
+    if (!row) {
+      row = document.createElement("div");
+      row.className = `${MODULE_ID}-open-row action-buttons flexrow`;
       const button = document.createElement("button");
       button.type = "button";
       button.className = `${MODULE_ID}-open`;
       button.innerHTML = `<i class="fa-solid fa-sliders" inert></i><span inert>${foundry.utils.escapeHTML(game.i18n.localize("AUDIO_CONSOLE.Controls.Open"))}</span>`;
       button.addEventListener("click", () => openConsole());
-      openRow.append(button);
+      row.append(button);
+      openRows.set(app, row);
     }
-    element.prepend(openRow);
+    header.before(row);
   });
 }
 
