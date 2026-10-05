@@ -1,3 +1,14 @@
+# 0.0.8
+
+### Added
+
+* **Listen before you add.** Each track in the **Add from Library** window now has a headphones button, so you can hear a sound before you pick it for a soundboard, playlist or ambience. Click it again to stop. Only one track plays at a time, and a long file shows a spinner while it loads. Closing the window stops the preview.
+
+### Fixed
+
+* **A preview could start after you had stopped it.** Stopping a long file while it was still loading did nothing, and it began playing once it loaded, with no way to stop it.
+
+
 # 0.0.7
 
 ### Added
