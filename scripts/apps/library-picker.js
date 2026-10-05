@@ -6,10 +6,11 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, MODULE_ID, PICKER_DRAG_TYPE } from "../constants.js";
+import { AUDIO_MODES, CHANNELS, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, MODULE_ID, PICKER_DRAG_TYPE } from "../constants.js";
 import { dirnameOf, humanizeName, normalizePath } from "../helpers.js";
 import { getEntries, isContainer } from "../data/repository.js";
 import * as library from "../library/index.js";
+import * as preview from "../audio/preview.js";
 import { TREE_INDENT, buildFolderTree, flattenFolderTree, renderTreeGutter } from "./folder-tree.js";
 import { VirtualList } from "./virtual-list.js";
 
@@ -32,8 +33,9 @@ const SEARCH_DEBOUNCE_MS = 120;
  * The list deliberately shows no tags per row: with a well-tagged catalogue the chips crowd the
  * name off its own line and give the window a horizontal scrollbar. Tags are a
  * way to *narrow* what is on offer here, not information to read per row — so they live in the
- * filter panel above, in the same chips the Library tab uses, and a row shows nothing but its
- * name, truncated.
+ * filter panel above, in the same chips the Library tab uses, and a row shows its name, truncated,
+ * and a preview button: with a few hundred files, choosing by name alone is guessing, and going
+ * back to the Library tab to listen means losing the selection (issue #2).
  *
  * The rows are a scroll window (virtual-list.js), like the Library table's. Painting every row
  * was measured in v14.368 against the Tabletop Audio pack's 3081 rows: 26,600 elements, ~1.5 s to
@@ -76,6 +78,7 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
       toggleFolder: AudioConsoleLibraryPicker.#onToggleFolder,
       selectAll: AudioConsoleLibraryPicker.#onSelectAll,
       clearSelection: AudioConsoleLibraryPicker.#onClearSelection,
+      previewEntry: AudioConsoleLibraryPicker.#onPreviewEntry,
       submit: AudioConsoleLibraryPicker.#onSubmit
     }
   };
@@ -91,12 +94,15 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
    * One at a time, and an already-open one is closed rather than brought forward: two pickers
    * aimed at two different containers, both looking identical, is a way to add fifty tracks to the
    * wrong one.
-   * @param {{container: Playlist, add: (container: Playlist, paths: string[]) => Promise<void>}} options
-   *   `add` is the console's own insert, so an entry is shaped by the section it lands in.
+   * @param {{container: Playlist, add: (container: Playlist, paths: string[]) => Promise<void>,
+   *   app: AudioConsoleApplication}} options
+   *   `add` is the console's own insert, so an entry is shaped by the section it lands in. `app` is
+   *   the console that opened the window: a preview goes through its audio-mode interlock and shows
+   *   on its transport, exactly like one started from the Library tab.
    */
-  static async open({ container, add }) {
+  static async open({ container, add, app }) {
     await foundry.applications.instances.get(this.DEFAULT_OPTIONS.id)?.close();
-    await new this({ container, add }).render({ force: true });
+    await new this({ container, add, app }).render({ force: true });
   }
 
   /**
@@ -112,12 +118,14 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
    * `container` and `add` are destructured out before `super()` on purpose: ApplicationV2 runs
    * whatever it is handed through mergeObject against DEFAULT_OPTIONS, and deep-merging a Document
    * into the options object is work (and a copy) the framework has no use for.
-   * @param {{container: Playlist, add: Function}} options Plus any ApplicationV2 option.
+   * @param {{container: Playlist, add: Function, app: AudioConsoleApplication}} options Plus any
+   *   ApplicationV2 option.
    */
-  constructor({ container, add, ...options }) {
+  constructor({ container, add, app, ...options }) {
     super(options);
     this.#container = container;
     this.#add = add;
+    this.#app = app;
     // The catalogue as it stood when the window opened. Filling containers and editing the
     // library are separate jobs, so the window never re-reads it; reopening does.
     this.#pool = library.getAllEntries();
@@ -129,6 +137,15 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
 
   /** @type {(container: Playlist, paths: string[]) => Promise<void>} */
   #add;
+
+  /** @type {AudioConsoleApplication} The console that opened this window. */
+  #app;
+
+  /** @type {string|null} The path this window last started a preview of. */
+  #auditioning = null;
+
+  /** @type {string|null} A preview this window started that is still loading. */
+  #loading = null;
 
   /** @type {object[]} Every library row, as of opening. */
   #pool = [];
@@ -332,6 +349,13 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#deleteHookId = null;
     this.#virtual?.destroy();
     this.#virtual = null;
+    // A preview started here is for choosing what to add; once the window is gone there is nothing
+    // left to choose, and leaving it playing would be a sound with no visible source. A preview
+    // started anywhere else is not this window's to stop. Stopped whether or not it has finished
+    // loading: stopPreview also cancels one still on its way.
+    if (this.#auditioning) preview.stopPreview(this.#auditioning).then(() => this.#app.updateTransport());
+    this.#auditioning = null;
+    this.#loading = null;
   }
 
   /* -------------------------------------------- */
@@ -398,10 +422,14 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
   }
 
   /**
-   * A track: the tree gutter, a checkbox, and the name. Nothing else — see this class's own header
-   * on why the tags cell is gone. The whole row is the <label>, so a click anywhere along it ticks
-   * the box rather than only the 15px square, and the checkbox takes its accessible name from the
-   * track name it wraps — no aria-label to keep in step with the text beside it.
+   * A track: the tree gutter, a checkbox and the name inside one <label>, then the preview button
+   * beside it. See this class's own header on why the tags cell is gone. The label spans everything
+   * but the button, so a click almost anywhere along the row ticks the box rather than only the
+   * 15px square, and the checkbox takes its accessible name from the track name it wraps — no
+   * aria-label to keep in step with the text beside it.
+   *
+   * The button is the label's sibling, never its child: a label may hold only one labelable
+   * element, and a <button> is one. The row is the drag source, so dragging still starts anywhere.
    * @param {{entry: object, depth: number, last: boolean}} row
    * @returns {string}
    */
@@ -413,12 +441,28 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     // subtree, which is exactly where the one separator belongs.
     const boundary = row.last ? " ac-row-boundary" : "";
     const dragLabel = e(game.i18n.localize("AUDIO_CONSOLE.Picker.DragHint"));
-    return `<label class="ac-row ac-picker-row${boundary}" title="${path}" draggable="true" data-drag-path="${path}">
-      ${renderTreeGutter(row.depth, true, row.last)}
-      <input type="checkbox" class="ac-picker-check" data-path="${path}"${this.#selected.has(row.entry.path) ? " checked" : ""}>
-      <span class="ac-picker-name">${e(row.entry.name)}</span>
+    // Read off the preview registry on every paint rather than kept per row: the transport's Stop,
+    // the Library tab and a track ending on its own all change it without this window's say.
+    // A file still loading shows a spinner: a long one takes seconds, and a button that does nothing
+    // visible for that long gets clicked again.
+    const loading = this.#loading === row.entry.path;
+    const auditioning = loading || preview.activePaths().includes(row.entry.path);
+    const previewLabel = e(game.i18n.localize(auditioning
+      ? "AUDIO_CONSOLE.Picker.StopPreview"
+      : "AUDIO_CONSOLE.Library.Actions.Preview"));
+    const previewIcon = loading ? "fa-spinner fa-spin" : (auditioning ? "fa-stop" : "fa-headphones");
+    return `<div class="ac-row ac-picker-row${boundary}" title="${path}" draggable="true" data-drag-path="${path}">
+      <label class="ac-picker-track">
+        ${renderTreeGutter(row.depth, true, row.last)}
+        <input type="checkbox" class="ac-picker-check" data-path="${path}"${this.#selected.has(row.entry.path) ? " checked" : ""}>
+        <span class="ac-picker-name">${e(row.entry.name)}</span>
+      </label>
+      <button type="button" class="ac-row-action ac-picker-preview${auditioning ? " active" : ""}" data-action="previewEntry"
+          data-preview-path="${path}" aria-label="${previewLabel}" data-tooltip="${previewLabel}">
+        <i class="fa-solid ${previewIcon}" inert></i>
+      </button>
       <i class="fa-solid fa-up-down-left-right ac-picker-grip" role="img" aria-label="${dragLabel}" data-tooltip="${dragLabel}"></i>
-    </label>`;
+    </div>`;
   }
 
   /**
@@ -664,6 +708,56 @@ export class AudioConsoleLibraryPicker extends HandlebarsApplicationMixin(Applic
     this.#selected.clear();
     this.#syncChecks();
     this.#updateStatus();
+  }
+
+  /**
+   * Audition a track, or stop it if it is the one already playing. One at a time: this window is for
+   * comparing candidates, and two of them over each other compare nothing. Same route as the Library
+   * tab's own preview button (library-section.js #previewEntry) — the console's interlock first, so
+   * a GM broadcasting to the table is switched to preview and the table stops, as it does there.
+   * @this {AudioConsoleLibraryPicker}
+   */
+  static async #onPreviewEntry(event, target) {
+    const entry = library.getEntry(target.dataset.previewPath);
+    if (!entry) return;
+    // Every repaint throws the clicked button away; a keyboard user keeps their place on its successor.
+    const refocus = target === document.activeElement;
+    if ((this.#loading === entry.path) || preview.activePaths().includes(entry.path)) {
+      this.#loading = null;
+      await preview.stopPreview(entry.path);
+    } else {
+      await this.#app.setAudioMode(AUDIO_MODES.PREVIEW);
+      // Also cancels one of ours still loading: preview.js drops it when it arrives.
+      await preview.stopAll();
+      this.#auditioning = this.#loading = entry.path;
+      this.#paintPreviews(entry.path, refocus);
+      const sound = await preview.preview(entry.path, { volume: entry.volume, channel: entry.channel });
+      if (this.#loading === entry.path) this.#loading = null;
+      // preview() resolves a Sound even when the source 404s, so a failed load is silent
+      // unless something reads .failed.
+      if (sound?.failed) {
+        ui.notifications.warn(game.i18n.format("AUDIO_CONSOLE.Transport.Notify.PlaybackFailed", { name: entry.name }));
+      }
+      // The button's icon follows the registry, which the transport and a natural end change behind
+      // this window's back. preview.js registers its own `end` cleanup first, so by the time these
+      // fire the registry already says what the repaint should show.
+      else if (sound) {
+        const repaint = () => this.#virtual?.paint();
+        for (const type of ["end", "stop"]) sound.addEventListener(type, repaint);
+      }
+    }
+    this.#app.updateTransport();
+    this.#paintPreviews(entry.path, refocus);
+  }
+
+  /**
+   * Repaint the rows so the preview buttons show the registry's state.
+   * @param {string} path The track whose button was clicked.
+   * @param {boolean} refocus Whether that button had keyboard focus before the repaint replaced it.
+   */
+  #paintPreviews(path, refocus) {
+    this.#virtual?.paint();
+    if (refocus) this.#rowsEl?.querySelector(`[data-preview-path="${CSS.escape(path)}"]`)?.focus();
   }
 
   /** @this {AudioConsoleLibraryPicker} */

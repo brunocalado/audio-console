@@ -68,13 +68,33 @@
   }
 
   /* The row's own layout, the one thing .ac-row in base.css deliberately leaves to each list:
-     gutter, checkbox, name. Nothing competes with the name for the remaining width, so it gets
-     all of it. line-height: 1 so the name's line box is not lopsided against the box beside it
-     (.claude/rules/ui-patterns.md, flexbox gotchas). */
+     gutter, checkbox, name, then a track's preview button and the grip. line-height: 1 so the
+     name's line box is not lopsided against the box beside it (.claude/rules/ui-patterns.md,
+     flexbox gotchas). */
   .ac-picker-row {
     display: flex;
     gap: 8px;
     line-height: 1;
+  }
+
+  /* A track row is a div holding its <label> (gutter, checkbox, name) and the preview button as
+     siblings — a label may hold only one labelable element (library-picker.js #renderRow). The
+     label takes all the width the button and grip leave, so a click almost anywhere on the row
+     still ticks the box. It stretches to the row's height for the tree gutter's guide lines. */
+  .ac-picker-track {
+    display: flex;
+    flex: 1 1 auto;
+    align-items: center;
+    align-self: stretch;
+    gap: 8px;
+    min-width: 0;
+    cursor: pointer;
+  }
+
+  /* The track being auditioned. Two classes, so it outranks .ac-row-action:hover in base.css by
+     specificity rather than by which file loads later. */
+  .ac-row-action.ac-picker-preview.active {
+    color: var(--ac-accent);
   }
 
   /* The row's drag affordance — the same glyph as the Library tab's grip and a pad's. Dimmed until

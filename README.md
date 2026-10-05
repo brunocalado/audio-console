@@ -39,6 +39,7 @@ once. Click a track to play it, and **Add to a Playlist** sends it to one of you
 a new one — without leaving the library. Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save
 as Macro** to create one without taking a hotbar slot. **Add from Library** fills a playlist,
 soundboard or ambience: tick the rows you want, or drag them straight onto a card in the console.
+Each row has a headphones button to listen to the track first, so you can choose by ear.
 
 ### ▶️ Now Playing — a queue you can see
 

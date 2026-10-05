@@ -12,35 +12,55 @@ import { normalizePath, toFetchUrl } from "../helpers.js";
 // Preview is GM-only auditioning. Nothing here reaches the database, so nothing here reaches the
 // players — confirmed against a live world with a connected player.
 //
-// The second argument to AudioHelper.play() is the socket option. We only ever pass `false`.
-// `true` broadcasts to everyone, which is the document path's job. If `true` ever appears in this
-// module, it is a bug.
+// A preview is a bare foundry.audio.Sound, never AudioHelper.play(): that one has a socket option
+// that broadcasts to everyone, which is the document path's job, and it starts playback the moment
+// the file has loaded — leaving no point at which a preview cancelled while loading can be dropped
+// before it makes a sound (see `pending`).
 
 /** @type {Map<string, foundry.audio.Sound>} normalised path -> the Sound auditioning it. */
 const previews = new Map();
 
 /**
+ * normalised path -> a token for the preview of it still loading. A Sound only reaches `previews`
+ * once it has loaded, and a long file takes seconds to fetch and decode — so without this, a stop
+ * issued in that window found nothing to stop, and the Sound started anyway once it loaded, with
+ * nothing left that would ever stop it. A stop deletes the token; a load that comes back to find
+ * its token gone is dropped without ever playing.
+ *
+ * Dropped rather than played-then-stopped: a long file streams through an <audio> element, and
+ * Sound#_play calls its play() without handling the promise, so a stop right behind it logs an
+ * unhandled "play() request was interrupted by a call to pause()" (seen in v14.368).
+ * @type {Map<string, object>}
+ */
+const pending = new Map();
+
+/**
  * Audition a file locally.
  * @param {string} path A stored (possibly percent-encoded) path.
  * @param {{volume?: number, loop?: boolean, channel?: string}} [options]
- * @returns {Promise<foundry.audio.Sound|null>}
+ * @returns {Promise<foundry.audio.Sound|null>} null when there was nothing to play, or when a stop
+ *   arrived while the file was still loading.
  */
 export async function preview(path, { volume = 0.7, loop = false, channel = DEFAULT_CHANNEL } = {}) {
   if (!path) return null;
   const key = normalizePath(path);
   await stopPreview(key);
+  const token = {};
+  pending.set(key, token);
 
-  const sound = await foundry.audio.AudioHelper.play({
-    // The stored form may already carry %20. toFetchUrl decodes before re-encoding so an encoded
-    // and a raw path converge instead of turning into %2520 and a 404.
-    src: toFetchUrl(path),
-    volume: Math.clamp(volume, 0, 1),
-    loop,
-    channel
-  }, false);
+  // The stored form may already carry %20. toFetchUrl decodes before re-encoding so an encoded and
+  // a raw path converge instead of turning into %2520 and a 404. The channel picks the volume
+  // context the same way AudioHelper.play() does.
+  const sound = new foundry.audio.Sound(toFetchUrl(path), { context: game.audio[channel] });
+  // A failed load does not throw: Sound#load logs it and leaves the Sound `failed`, which callers
+  // read to tell the GM.
+  await sound.load();
 
-  if (!sound) return null;
+  // Superseded while loading: stopped, or asked for again.
+  if (pending.get(key) !== token) return null;
+  pending.delete(key);
   previews.set(key, sound);
+  if (!sound.failed) sound.play({ volume: Math.clamp(volume, 0, 1), loop });
 
   // A preview Sound belongs to no document, so nobody else will ever clean it up. Dropping it
   // when it ends on its own is what keeps the registry from growing for a session.
@@ -57,6 +77,7 @@ export async function preview(path, { volume = 0.7, loop = false, channel = DEFA
  */
 export async function stopPreview(path) {
   const key = normalizePath(path);
+  pending.delete(key);
   const sound = previews.get(key);
   if (!sound) return;
   previews.delete(key);
@@ -108,6 +129,7 @@ export async function seek(seconds) {
 export async function stopAll() {
   const sounds = [...previews.values()];
   previews.clear();
+  pending.clear();
   await Promise.all(sounds.map(s => s.stop()));
 }
 

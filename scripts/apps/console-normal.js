@@ -1453,7 +1453,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       ui.notifications.info(game.i18n.localize("AUDIO_CONSOLE.Playlists.Notify.NothingToAdd"));
       return;
     }
-    await AudioConsoleLibraryPicker.open({ container, add: (into, paths) => this.#addLibraryPaths(into, paths) });
+    await AudioConsoleLibraryPicker.open({ container, add: (into, paths) => this.#addLibraryPaths(into, paths), app: this });
   }
 
   /**

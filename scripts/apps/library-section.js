@@ -552,7 +552,7 @@ export class LibrarySection {
   async #previewEntry(entry) {
     await this.#app.setAudioMode(AUDIO_MODES.PREVIEW);
     const sound = await preview.preview(entry.path, { volume: entry.volume, channel: entry.channel });
-    // AudioHelper.play() resolves a Sound even when the source 404s, so a failed load is silent
+    // preview() resolves a Sound even when the source 404s, so a failed load is silent
     // unless something reads .failed.
     if (sound?.failed) {
       entry.missing = true;
