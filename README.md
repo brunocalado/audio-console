@@ -1,147 +1,143 @@
 # 🎛️ Audio Console
 
-**Your table's music, ambience and sound effects — in one window!**
+Halfway through a fight you need the battle music to start, a door to slam and the rain outside to
+keep going, and in Foundry's Playlists sidebar those are three different places to click.
 
-Stop juggling the Playlists sidebar mid-session. Audio Console gives the Game Master a single
-mixing desk: a searchable music library, playlists, a soundboard of one-shot pads, layered
-ambience beds, and rules that change the music on their own when the storm rolls in or combat
-starts.
+Audio Console puts all of it in one window for the GM: a searchable library of your audio files,
+playlists, a soundboard of one-shot pads, ambiences built from layers, and rules that change the
+music by themselves when the weather turns or combat starts. Everything it makes is a normal
+Foundry playlist.
 
 ![The Audio Console window, showing the library](docs/library.webp)
 
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy_Me_a_Coffee-Donate-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/mestredigital) [![More Modules](https://img.shields.io/badge/Foundry%20VTT-More%20Modules-red?style=for-the-badge&logo=gamepad)](https://mestredigital.online/pages/projetos-en)
 
----
+## What sets it apart
 
-# ✨ What makes it different
-
-- 🎧 **Nothing plays by accident.** Playback starts in **Preview** — only you hear it. Flip the
-  transport to **LIVE** when you actually want the table to hear it.
-- 🗂️ **Tag your music once, use it forever.** The library lives outside your worlds, so a new
-  campaign starts with your whole collection already catalogued.
-- 🧩 **No lock-in.** Everything it creates is a normal Foundry playlist. Turn the module off and
-  your audio is still there, still playable from the sidebar.
-- 🖱️ **Built for live play.** One window, big buttons, a compact bar for when you need the screen
+- Nothing plays by accident. Playback starts in **Preview**, where only you hear it. Flip the
+  transport to **LIVE** when the table should hear it.
+- You tag your music once. The library lives outside your worlds, so a new campaign starts with
+  your whole collection already catalogued.
+- There is no lock-in. Everything it creates is a normal Foundry playlist, so if you turn the module
+  off your audio is still there and still plays from the sidebar.
+- It is made for live play: one window, big buttons, and a compact bar for when you need the screen
   back.
 
----
+## What's in the console
 
-# 🎁 Features
+### Library
 
-### 📚 Library — your whole collection, catalogued
-
-Add files one at a time, or **Scan Folder** to register hundreds at once — pick the channel and
+Add files one at a time, or use **Scan Folder** to register hundreds at once. Pick the channel and
 tags up front and every new file in the folder (subfolders too, if you like) gets them. Browse by
-folder or search by name, path or tag. Tag freely — **tavern**, **combat**, **storm** —
-and filter by tag or by channel (Music / Environment). Files that go missing are flagged, never
-silently dropped. A **Manage Tags** panel renames, groups or deletes a tag across every track at
-once. Click a track to play it, and **Add to a Playlist** sends it to one of your playlists — or to
-a new one — without leaving the library. Drag a track onto the map for an ambient sound, onto the hotbar for a macro, or use **Save
-as Macro** to create one without taking a hotbar slot. **Add from Library** fills a playlist,
-soundboard or ambience: tick the rows you want, or drag them straight onto a card in the console.
+folder or search by name, path or tag. Tag freely (tavern, combat, storm) and filter by tag or by
+channel (Music or Environment). Files that go missing are flagged, never silently dropped. The
+**Manage Tags** panel renames, groups or deletes a tag across every track at once.
+
+Click a track to play it, and **Add to a Playlist** sends it to one of your playlists, or to a new
+one, without leaving the library. Drag a track onto the map for an ambient sound, onto the hotbar
+for a macro, or use **Save as Macro** to create one without taking a hotbar slot.
+
+The **Library** button on a playlist, soundboard or ambience opens **Add from Library**, which fills
+it from your catalogue: tick the rows you want, or drag them straight onto a card in the console.
 Each row has a headphones button to listen to the track first, so you can choose by ear.
 
-### ▶️ Now Playing — a queue you can see
+### Now Playing
 
 Every library track you play to the table lands in a visible queue. Play, stop, reorder, clear.
-No more wondering what is still running somewhere in the background. The queue is emptied every
-time the world loads, so when a session's run of tracks is worth keeping, **Save as Playlist**
-turns it into a playlist, in the same order.
+You can always see what is still running. The queue is emptied every time the world loads, so when
+a session's run of tracks is worth keeping, **Save as Playlist** turns it into a playlist, in the
+same order.
 
-The transport bar at the bottom plays, pauses, skips and stops, and its progress bar can be
-clicked or dragged to seek. **Repeat** loops the current track. Music and ambience are each one at
-a time: starting a playlist or a track stops the other music, starting an ambience stops the other
-ambience — but music and an ambience still play together, and soundboard pads play over anything.
+The transport bar at the bottom plays, pauses, skips and stops, and its progress bar can be clicked
+or dragged to seek. Repeat loops the current track. Music and ambience each play one at a time:
+starting a playlist or a track stops the other music, and starting an ambience stops the other
+ambience. Music and an ambience still play together, and soundboard pads play over anything.
 
 ![The Now Playing queue](docs/now-playing.webp)
 
-### 🎶 Playlists — sequential or shuffle
+### Playlists
 
-Ordinary playlists built from the library, with drag-to-reorder and a fade control. They are native
-Foundry playlists, so they behave exactly the way you already expect.
+Ordinary playlists built from the library, sequential or shuffled, with drag-to-reorder and a fade
+control. They are native Foundry playlists, so they behave the way you already expect.
 
 ![A playlist with its tracks](docs/playlists.webp)
 
-### 🔊 Soundboards — one-shot pads for the moment
+### Soundboards
 
 A grid of pads for stingers: a door slam, a wolf howl, a critical hit. Right-click a pad to set its
-name, icon, colour and volume, and whether it plays once, loops, or **fires on a random interval**
-— wait somewhere between a minimum and a maximum, then play again — for background noise that never
-repeats the same way twice. Show a board as a grid or a list, and give it a background colour of
-its own. Switch on **Duck Music** for a board and the music dips on every player's client while one
-of its pads plays, then comes back on its own. Drag a pad to the hotbar to turn it into a
-**macro**, drop it **on the map** to place it as an ambient sound — Foundry fills in the file and
-volume, you set the radius, and only players with a token in range hear it — or send a sound to
-**one single player**, so only they hear it.
+name, icon, colour and volume, and whether it plays once, loops, or fires on a random interval. A
+random pad waits somewhere between a minimum and a maximum, then plays again, so background noise
+never repeats the same way twice. Show a board as a grid or a list, and give it a background colour
+of its own. Switch on **Duck Music** for a board and the music dips on every player's client while
+one of its pads plays, then comes back on its own.
 
-**Share a board with your players** and they get a window of its pads, opened from a button of
-their own: they can play and stop those pads, and nothing else — no configuring, no editing, no
+Drag a pad to the hotbar to turn it into a macro. Drop it on the map to place it as an ambient
+sound: Foundry fills in the file and volume, you set the radius, and only players with a token in
+range hear it. You can also send a sound to one single player, so only they hear it.
+
+You can share a board with your players. They get a window of its pads, opened from a button of
+their own, and they can play and stop those pads and nothing else: no configuring, no editing, no
 library. Everyone hears what they fire, and you can stop it from the console like any other pad.
 Share with the whole table from the board's toolbar, or with only some players by giving them
 **Observer** ownership of it in the Playlists sidebar. Your Foundry tab has to be awake for their
-pads to play, so keep it from sleeping in the background (in Chrome: Settings → Performance →
+pads to play, so keep it from sleeping in the background (in Chrome: Settings, Performance,
 *Always keep these sites active*).
 
 ![A soundboard of pads](docs/soundboard.webp)
 
-### 🌧️ Ambiences — build a soundscape in layers
+### Ambiences
 
-Stack layers into one scene bed — rain, market, distant night — each with its own volume, playing
-once, looping, or on a random interval, so a thunderclap fires now and then instead of looping.
-Timed layers don't all go off the moment the ambience starts — their first play is spread out —
-unless you tick **Also play when the ambience starts** for the ones that should. Play all, stop
-all, or mix live.
+Stack layers into one scene bed, such as rain, a market and distant night sounds. Each layer has its
+own volume and plays once, loops, or plays on a random interval, so a thunderclap fires now and then
+instead of looping. Timed layers don't all go off the moment the ambience starts, because their first
+play is spread out, unless you tick **Also Play When the Ambience Starts** for the ones that should.
+Play all, stop all, or mix live.
 
 ![An ambience mix with its layers](docs/ambience.webp)
 
-### 🤖 Automation — audio that follows the scene
+### Automation
 
-Write simple rules: **when scene weather is rain → play "Rainy Village"**, **when darkness is 70% or
-more → play "Deep Forest"**, **when the Tavern scene is active → play "Tavern Night"**, **between
-20:00 and 06:00 on the world clock → play "Night Ambience"**, **when combat starts → play "Boss
-Battle"**, **when combat ends → stop it**. Rules can play a playlist,
-an ambience, a single track or a pad — or stop things, including everything at once. A single
-**Armed / Disarmed** switch keeps automation from firing until you say so, and a recent-activity log
-shows what fired and when. **Test Rule** fires any rule on the spot, without waiting for its
-condition.
+Write simple rules: when the scene weather is rain, play "Rainy Village"; when darkness is 70% or
+more, play "Deep Forest"; when the Tavern scene is active, play "Tavern Night"; between 20:00 and
+06:00 on the world clock, play "Night Ambience"; when combat starts, play "Boss Battle"; when combat
+ends, stop it. Rules can play a playlist, an ambience, a single track or a pad, or stop things,
+including everything at once. A single **Armed** / **Disarmed** switch keeps automation from firing
+until you say so, and a recent-activity log shows what fired and when. **Test Rule** fires any rule
+on the spot, without waiting for its condition.
 
 ![The automation rule list](docs/automation.webp)
 
-### 🪟 Compact Mode — get your screen back
+### Compact mode, favorites and pop out
 
-Collapse the console into a small frameless bar: see what is playing, pause or skip it, and expand
-back when you need the full window. **Favorites** keep the playlists, soundboards and ambiences you
-reach for most within one click of the console's rail, and **Pop Out** opens any playlist,
-soundboard or ambience in a small window of its own.
+**Compact Mode** collapses the console into a small frameless bar: see what is playing, pause or
+skip it, and expand back when you need the full window. **Favorites** keep the playlists,
+soundboards and ambiences you reach for most within one click of the console's rail, and **Pop Out**
+opens any playlist, soundboard or ambience in a small window of its own.
 
 ![The compact transport bar](docs/compact-mode.webp)
 
----
+## Getting started
 
-# 🚀 Getting started
-
-1. **Enable the module** in your world. An **Audio Console** button appears in the
-   Sounds scene controls and at the top of the Playlists sidebar. Players never see the console; they
-   only get a button of their own once you share a soundboard with them.
-2. **Fill the library.** Open the **Library** section and use **Add** for a single file, or
+1. Enable the module in your world. An **Audio Console** button appears in the Sounds scene
+   controls and at the top of the Playlists sidebar. Players never see the console. They only get a
+   button of their own once you share a soundboard with them.
+2. Fill the library. Open the **Library** section and use **Add** for a single file, or
    **Scan Folder** to register a whole folder at once.
-3. **Build something.** Make a playlist, a soundboard or an ambience and add tracks from the library.
-4. **Play it.** Audition in **Preview** with your headphones on, then hit the mode toggle to go
+3. Build something. Make a playlist, a soundboard or an ambience and add tracks from the library.
+4. Play it. Audition in **Preview** with your headphones on, then hit the mode toggle to go
    **LIVE** when the table should hear it.
 
----
+## Opening it from a macro
 
-# 🎮 Opening it from a macro
-
-Want the console on your hotbar? Make a **script** macro with one line:
+Want the console on your hotbar? Make a script macro with one line:
 
 ```js
 AudioConsole.Open();
 ```
 
-It opens whichever mode you left it in, the full window or the compact bar — exactly what the
-buttons do. A player who runs it opens the soundboards you shared with them, or gets a notice if
-there are none.
+It opens whichever mode you left it in, the full window or the compact bar, the same as the buttons
+do. A player who runs it opens the soundboards you shared with them, or gets a notice if there are
+none.
 
 You can also put a single playlist, soundboard or ambience on the hotbar. Drag the grip beside
 **Pop Out** in its section, or drag the playlist from Foundry's own Playlists sidebar, onto a
@@ -151,45 +147,40 @@ hotbar slot. You get a macro that opens it in its own window. The macro just pas
 AudioConsole.Open("<id>");
 ```
 
----
+## Where your library lives, and how to back it up
 
-# 💾 Where your library lives (and how to back it up)
+Your catalogue is not stored inside a world. It lives in `Data/audio-console/`, next to `worlds/`
+and `modules/` in your Foundry installation. That is deliberate, and it means the library:
 
-Your catalogue is **not** stored inside a world. It lives in `Data/audio-console/`, next to
-`worlds/` and `modules/` in your Foundry installation. That is deliberate:
+- is shared by every world on this installation, so you tag once and use it in every campaign;
+- survives updating or uninstalling the module;
+- is not included in a world export or world backup;
+- is not synced between computers, so moving to another installation means copying that folder
+  yourself.
 
-- ✅ **Shared by every world** on this installation — tag once, use in every campaign.
-- ✅ **Survives** updating or uninstalling the module.
-- ⚠️ **Not** included in a world export or world backup.
-- ⚠️ **Not** synced between computers — moving installation means copying that folder yourself.
-
-Because of those last two, go to **Settings → Library Maintenance** and use **Export a Copy**: it
-downloads `library.json` through your browser, and *that* download is the real backup. The same
-panel can **import** a catalogue from another installation (merge or replace), or **consolidate**
-every library file into the module's own folder — handy before moving machines.
+Because of those last two, go to **Settings**, **Library Maintenance** and use **Export a Copy**. It
+downloads `library.json` through your browser, and that download is the real backup. The same
+panel can import a catalogue from another installation (merge or replace), or consolidate every
+library file into the module's own folder, which helps before moving machines.
 
 > Note: Foundry's file API cannot delete, move or rename files, so this module never touches your
 > audio files. Removing or tidying the actual files is always done in your operating system.
 
----
+## Installation
 
-# 🚀 Installation
-
-Install via the Foundry VTT Module browser or use this manifest link:
+Install it from the Foundry VTT module browser, or use this manifest link:
 
 ```js
 https://github.com/brunocalado/audio-console/releases/latest/download/module.json
 ```
 
----
+It needs Foundry VTT v14.
 
-# 🧰 For content creators
+## For content creators
 
 Modules and script macros can fill the library and build playlists, soundboards and ambiences
-through a small setup API — including content packs that the GM can later **Sync** from
-**Settings → Library Maintenance**. See [`docs/API.md`](docs/API.md).
-
----
+through a small setup API, including content packs that the GM can later **Sync** from
+**Settings**, **Library Maintenance**. See [`docs/API.md`](docs/API.md).
 
 # 📜 License
 
