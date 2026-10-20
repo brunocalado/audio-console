@@ -203,7 +203,8 @@ export async function createMacroFolder() {
 }
 
 /**
- * @param {{name: string, command: string, img: string, path: string, folder?: string|null}} spec
+ * @param {{name: string, command: string, img: string, flags: object, folder?: string|null}} spec
+ *   `flags` is the module-scoped flag object, holding the key repository.js finds the macro by.
  * @returns {Promise<Macro|undefined>}
  */
 export async function createMacro(spec) {
@@ -214,7 +215,7 @@ export async function createMacro(spec) {
     img: spec.img,
     command: spec.command,
     folder: spec.folder ?? null,
-    flags: { [MODULE_ID]: { [FLAGS.SOUND_PATH]: spec.path } }
+    flags: { [MODULE_ID]: spec.flags }
   }]);
   return macro;
 }

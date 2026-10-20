@@ -465,6 +465,17 @@
     }
   }
 
+  /* The section header's hotbar grip, beside Pop Out — picked up, like the row and pad grips. Two
+     classes, so it beats .ac-icon-button's own `cursor: pointer` (further down) outright rather
+     than on file order. */
+  .ac-icon-button.ac-container-grip {
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
   /* A row whose file could not be found at its saved path: rendered dimmed with a badge and left
      in the list. Dimmed by swapping the name to --ac-text-dim rather than an opacity on the whole
      row — opacity would also soften the badge, and the badge's own contrast against --ac-live is

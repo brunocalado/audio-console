@@ -880,6 +880,9 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       list.addEventListener("dragleave", this.#onContainerListDragLeave);
       list.addEventListener("drop", this.#onContainerListDrop);
     }
+    for (const grip of this.element.querySelectorAll("[data-container-grip]")) {
+      grip.addEventListener("dragstart", this.#onContainerGripDragStart);
+    }
 
     // Right-click opens pad config; reordering is delegated on the grid because, virtualised, the
     // tile a drag starts on may not have existed a scroll frame ago.
@@ -2066,6 +2069,19 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     }));
     // The ghost is the tile, not the 22px grip that was actually picked up.
     event.dataTransfer.setDragImage(pad, pad.offsetWidth / 2, pad.offsetHeight / 2);
+  };
+
+  /**
+   * The section header's hotbar grip, beside Pop Out: a separate grip rather than a draggable Pop
+   * Out button, because a click that twitches into a drag would otherwise not open the window.
+   * The payload is core's own, with no marker — the hotbar hook knows a container by its flag
+   * (data/sound-macros.js), which is also what makes a drag from core's sidebar land the same way.
+   */
+  #onContainerGripDragStart = event => {
+    const { container } = this.#sectionOf(event.currentTarget);
+    if (!container) return void event.preventDefault();
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("text/plain", JSON.stringify(container.toDragData()));
   };
 
   #onPadDragOver = event => {

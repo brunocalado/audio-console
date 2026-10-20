@@ -1,3 +1,10 @@
+# Unreleased
+
+### Added
+
+* **Playlists, soundboards and ambiences on the hotbar.** Drag the new grip beside **Pop Out**, or the playlist from Foundry's own Playlists sidebar, onto the hotbar. You get a macro that opens it in its own window. Dragging the same one again reuses its macro. Before, a sidebar drag made Foundry's own macro, which only opened the playlist's settings sheet.
+
+
 # 0.0.8
 
 ### Added

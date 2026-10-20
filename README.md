@@ -143,6 +143,14 @@ It opens whichever mode you left it in, the full window or the compact bar — e
 buttons do. A player who runs it opens the soundboards you shared with them, or gets a notice if
 there are none.
 
+You can also put a single playlist, soundboard or ambience on the hotbar. Drag the grip beside
+**Pop Out** in its section, or drag the playlist from Foundry's own Playlists sidebar, onto a
+hotbar slot. You get a macro that opens it in its own window. The macro just passes the id along:
+
+```js
+AudioConsole.Open("<id>");
+```
+
 ---
 
 # 💾 Where your library lives (and how to back it up)

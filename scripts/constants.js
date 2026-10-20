@@ -70,6 +70,7 @@ export const FLAGS = {
   FAVORITE: "favorite",       // Playlist: pinned to the rail's Favorites list
   MACRO_FOLDER: "macroFolder", // Folder: the module's folder in the Macro sidebar
   SOUND_PATH: "soundPath",    // Macro: the audio file it plays — the pad-to-hotbar dedupe key
+  CONTAINER_ID: "containerId", // Macro: the container it opens — the container-to-hotbar dedupe key
   PACK: "pack",               // Playlist: which content module built it, via the public API
   DUCK: "duck",               // Playlist (soundboard): lower the music channel while a pad sounds
   ACTIVE: "active",           // Playlist (ambience): switched on, whether or not a layer sounds right now
@@ -131,6 +132,14 @@ export const CONTAINER_KINDS = {
   SOUNDBOARD: "soundboard",
   AMBIENCE: "ambience",
   QUEUE: "queue"
+};
+
+// What a container's hotbar macro wears, one per kind so three of them on a bar read apart. Core
+// icons, which ship with every install the way DEFAULT_PAD_ICON does.
+export const CONTAINER_MACRO_ICONS = {
+  [CONTAINER_KINDS.PLAYLIST]: "icons/tools/instruments/gramophone-vinyl-record-player.webp",
+  [CONTAINER_KINDS.SOUNDBOARD]: "icons/tools/instruments/drum-snare-red.webp",
+  [CONTAINER_KINDS.AMBIENCE]: "icons/tools/instruments/chimes-wood-white.webp"
 };
 
 // flags["audio-console"].section on the root Folder and its three children.

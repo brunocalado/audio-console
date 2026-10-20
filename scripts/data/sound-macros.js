@@ -6,13 +6,16 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { DEFAULT_PAD_ICON, MODULE_ID, SOUND_DRAG_MARKER } from "../constants.js";
+import { CONTAINER_MACRO_ICONS, DEFAULT_PAD_ICON, FLAGS, MODULE_ID, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, effectiveChannel, humanizeName } from "../helpers.js";
 import { soundSpecFor } from "../audio/playback.js";
 import { readEntryFlags } from "./flag-models.js";
-import { findMacroForPath, getMacroFolder } from "./repository.js";
+import { containerKindOf, findMacroForContainer, findMacroForPath, getMacroFolder } from "./repository.js";
 import { createMacro, createMacroFolder } from "./mutations.js";
 
+// Hotbar macros: a sound's, and a container's (see Containers below — the one exception to
+// everything said in the rest of this comment).
+//
 // A sound as a hotbar macro — a soundboard pad dragged there, or a library row dragged or saved
 // from its own button. The macro this produces is a leaving present: it holds a path and the two
 // numbers that decide how the sound plays, and calls core's own AudioHelper. Nothing in it imports
@@ -97,7 +100,7 @@ async function macroForSound(sound) {
     // had an icon picked fall back here exactly as the pad grid does, rather than storing the
     // default (constants.js DEFAULT_PAD_ICON).
     img: readEntryFlags(sound).icon || DEFAULT_PAD_ICON,
-    path: sound.path,
+    flags: { [FLAGS.SOUND_PATH]: sound.path },
     folder: folder?.id ?? null
   });
   return macro ? { macro, created: true } : null;
@@ -162,26 +165,114 @@ async function assignSoundMacro(data, slot) {
   }
 }
 
+/* -------------------------------------------- */
+/*  Containers                                  */
+/* -------------------------------------------- */
+
+// A playlist, soundboard or ambience as a hotbar macro, which opens its Pop Out window. Unlike a
+// sound's macro this one does need the module: the popout is the module's own window, so there is
+// nothing core could open in its place. Opening rather than toggling playback is deliberate — a
+// hotbar slot shows no on/off state, so a blind toggle on the wrong slot would start or stop music
+// with no feedback, and a soundboard has nothing to toggle. The popout shows state and has Play and
+// Stop in its header.
+
 /**
- * Claim the hotbar drops that carry one of our sounds — a pad or a library row.
+ * The container a hotbar drop carries, when it is one with a Pop Out window. Recognised by our
+ * kind flag rather than by a drag marker, so the same container dragged out of core's own Playlists
+ * sidebar lands as this macro too instead of core's "Display" one, which opens the raw sheet of a
+ * document this module manages. Synchronous on purpose: the hook has to answer before core resolves
+ * the document. The queue is a container too, but it has no popout, so "Now Playing" is left to core.
+ * @param {object} data The drag payload.
+ * @returns {Playlist|null}
+ */
+function hotbarContainerFor(data) {
+  if ((data?.type !== "Playlist") || (typeof data.uuid !== "string")) return null;
+  const doc = foundry.utils.fromUuidSync(data.uuid);
+  return CONTAINER_MACRO_ICONS[containerKindOf(doc)] ? doc : null;
+}
+
+/**
+ * The macro body. The guard's message is hardcoded English on purpose: it runs exactly when the
+ * module, and so its lang file, is not loaded — and without it the macro would fail with a
+ * ReferenceError that core reports nowhere the GM can see.
+ * @param {Playlist} container
+ * @returns {string}
+ */
+function containerCommandFor(container) {
+  return [
+    `// Audio Console — opens ${JSON.stringify(container.name)} in its own window.`,
+    `if (!globalThis.AudioConsole) return ui.notifications.warn("Audio Console is not active in this world.");`,
+    `AudioConsole.Open(${JSON.stringify(container.id)});`
+  ].join("\n");
+}
+
+/**
+ * The macro for a container — the one that already exists for it, or a new one. Reuse is by id, the
+ * way a sound's is by path. Nothing deletes or renames it when the container changes: once made,
+ * the macro is the GM's, and running it after the container is gone warns (main.js openConsole).
+ * @param {Playlist} container
+ * @returns {Promise<{macro: Macro, created: boolean}|null>} Null if the macro could not be made.
+ */
+async function macroForContainer(container) {
+  const existing = findMacroForContainer(container.id);
+  if (existing) return { macro: existing, created: false };
+
+  const folder = getMacroFolder() ?? await createMacroFolder();
+  const macro = await createMacro({
+    name: container.name,
+    command: containerCommandFor(container),
+    img: CONTAINER_MACRO_ICONS[containerKindOf(container)],
+    flags: { [FLAGS.CONTAINER_ID]: container.id },
+    folder: folder?.id ?? null
+  });
+  return macro ? { macro, created: true } : null;
+}
+
+/**
+ * Answer a container dropped on the hotbar. Detached from the hook, as assignSoundMacro is.
+ * @param {Playlist} container
+ * @param {string} slot The hotbar slot that was dropped on.
+ * @returns {Promise<void>}
+ */
+async function assignContainerMacro(container, slot) {
+  try {
+    const result = await macroForContainer(container);
+    if (!result) return;
+    await game.user.assignHotbarMacro(result.macro, slot);
+    ui.notifications.info(game.i18n.format(
+      result.created ? "AUDIO_CONSOLE.Soundboard.Notify.MacroCreated" : "AUDIO_CONSOLE.Soundboard.Notify.MacroReused",
+      { name: result.macro.name }
+    ));
+  } catch (err) {
+    console.error(`${MODULE_ID} | could not put a container on the hotbar`, err);
+    ui.notifications.error(game.i18n.localize("AUDIO_CONSOLE.Containers.Notify.MacroFailed"));
+  }
+}
+
+/**
+ * Claim the hotbar drops that carry one of our sounds — a pad or a library row — or one of our
+ * containers.
  *
  * The callback has to answer synchronously — returning false is what stops core's own handling,
- * and core would otherwise resolve the payload as the PlaylistSound it says it is and leave a
- * macro that only opens that sound's config sheet — so the work is started and deliberately not
- * awaited.
+ * and core would otherwise resolve the payload as the document it says it is and leave a macro
+ * that only opens that document's sheet — so the work is started and deliberately not awaited.
  *
- * Ours is recognised by the module id key rather than by `type`, which says "PlaylistSound" so
+ * A sound is recognised by the module id key rather than by `type`, which says "PlaylistSound" so
  * that the same drag lands on the canvas as an ambient sound (apps/console-normal.js). A sound
- * dragged out of core's Playlists sidebar carries no such key and is left to core.
+ * dragged out of core's Playlists sidebar carries no such key and is left to core. A container is
+ * recognised by its flag instead (hotbarContainerFor), wherever the drag started.
  *
- * Returning false also skips core's hotbar-lock check, which sits *after* the hook. So the lock
- * is honoured here instead: a locked bar stays locked, silently, exactly as it does for a macro
- * dragged from the sidebar.
+ * Core refuses a locked bar before it calls this hook (build 369), so the lock needs no check here.
  */
 export function registerHotbarDrop() {
   foundry.helpers.Hooks.on("hotbarDrop", (hotbar, data, slot) => {
-    if (data?.[MODULE_ID] !== SOUND_DRAG_MARKER) return;
-    if (!hotbar.locked) assignSoundMacro(data, slot);
+    if (data?.[MODULE_ID] === SOUND_DRAG_MARKER) {
+      assignSoundMacro(data, slot);
+      return false;
+    }
+    const container = hotbarContainerFor(data);
+    if (!container) return;
+    assignContainerMacro(container, slot);
     return false;
   });
 }
