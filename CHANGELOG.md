@@ -1,3 +1,10 @@
+# Unreleased
+
+### Added
+
+* **Playlists, soundboards and ambiences on the hotbar.** The selected card in each list now has a grip next to its rename button. Drag it onto the hotbar for a macro that opens that playlist, soundboard or ambience in its own window, the same as **Pop Out**. Dragging the same one again reuses its macro.
+
+
 # 0.0.8
 
 ### Added

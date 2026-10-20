@@ -6,7 +6,8 @@
     "Controls": {
       "Open": "Audio Console",
       "Compact": "Compact Mode",
-      "GMOnly": "Audio Console is available to the Game Master only."
+      "GMOnly": "Audio Console is available to the Game Master only.",
+      "ContainerMissing": "That playlist, soundboard or ambience no longer exists."
     },
     "Nav": {
       "Label": "Audio Console sections"
@@ -186,7 +187,8 @@
       },
       "ConfirmRename": "Confirm Rename",
       "CancelRename": "Cancel",
-      "PopOut": "Pop Out"
+      "PopOut": "Pop Out",
+      "Drag": "Drag onto the Hotbar for a Macro that opens this in its own window"
     },
     "Playlists": {
       "ListLabel": "Playlist Containers",

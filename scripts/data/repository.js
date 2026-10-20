@@ -218,3 +218,14 @@ export function findMacroForPath(path) {
   if (!wanted) return null;
   return game.macros.find(m => normalizePath(m.getFlag(MODULE_ID, FLAGS.SOUND_PATH) ?? "") === wanted) ?? null;
 }
+
+/**
+ * The macro already made for a container, if there is one — by id, the same way findMacroForPath
+ * goes by file, so dragging a card twice reuses the first macro.
+ * @param {string} id A Playlist id.
+ * @returns {Macro|null}
+ */
+export function findMacroForContainer(id) {
+  if (!id) return null;
+  return game.macros.find(m => m.getFlag(MODULE_ID, FLAGS.CONTAINER_ID) === id) ?? null;
+}

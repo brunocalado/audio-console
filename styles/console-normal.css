@@ -619,21 +619,34 @@
      rule happens to sit later in the file — it already broke once, when this block moved above
      .ac-icon-button during a later edit. The two-class selector wins outright, independent of
      where either rule is declared. */
-  .ac-container-rename {
+  .ac-container-rename,
+  .ac-container-grip {
     position: absolute;
     top: 50%;
     right: 6px;
     transform: translateY(-50%);
   }
 
-  .ac-icon-button.ac-container-rename:hover {
+  .ac-icon-button:is(.ac-container-rename, .ac-container-grip):hover {
     background: transparent;
     color: var(--ac-accent);
   }
 
-  /* Room for the rename button so a long name's ellipsis lands before it rather than under it. */
+  /* The hotbar grip sits just left of the pencil, and takes the hand cursor the row and pad grips
+     use: it is picked up rather than pressed. */
+  .ac-container-grip {
+    right: 30px;
+    cursor: grab;
+
+    &:active {
+      cursor: grabbing;
+    }
+  }
+
+  /* Room for the rename button and the grip so a long name's ellipsis lands before them rather
+     than under them. */
   .ac-container-card-wrap.active .ac-container-card {
-    padding-right: 34px;
+    padding-right: 58px;
   }
 
   /* Pinning the open container, in the section toolbar beside Delete. Gold when pinned, and the

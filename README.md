@@ -143,6 +143,14 @@ It opens whichever mode you left it in, the full window or the compact bar — e
 buttons do. A player who runs it opens the soundboards you shared with them, or gets a notice if
 there are none.
 
+To put **one playlist, soundboard or ambience** on the hotbar, select it in the console and drag
+the grip that appears on its card onto a hotbar slot. The macro opens it in its own window, the
+same as **Pop Out**. It is `AudioConsole.Open()` with the container's id:
+
+```js
+AudioConsole.Open("<id>");
+```
+
 ---
 
 # 💾 Where your library lives (and how to back it up)

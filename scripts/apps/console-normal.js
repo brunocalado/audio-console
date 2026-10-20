@@ -6,7 +6,7 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PAD_VIEWS, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
+import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_DRAG_MARKER, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PAD_VIEWS, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, fitPadGrid, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
 import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused } from "../data/repository.js";
 import { buildContainerFlags, buildEntryFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
@@ -876,6 +876,7 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     }
     this.element.querySelector("[data-layer-list]")?.addEventListener("input", this.#onEntryVolumeInput);
     for (const list of this.element.querySelectorAll("[data-container-drop]")) {
+      list.addEventListener("dragstart", this.#onContainerGripDragStart);
       list.addEventListener("dragover", this.#onContainerListDragOver);
       list.addEventListener("dragleave", this.#onContainerListDragLeave);
       list.addEventListener("drop", this.#onContainerListDrop);
@@ -1643,6 +1644,28 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
    * #onRowDragStart). Its payload is unreadable until the drop, so it is recognised by its MIME
    * type alone.
    */
+  /**
+   * A container card leaving the console by its grip, bound for the hotbar, where it leaves a
+   * macro that opens the container in its own window (data/sound-macros.js). The payload says
+   * `type: "Playlist"` because that is what a container is; the module id key is what the hotbar
+   * hook reads, as it does for a pad. The list's own drop handler ignores it: it only takes
+   * library-picker drags.
+   */
+  #onContainerGripDragStart = event => {
+    const grip = event.target.closest("[data-container-grip]");
+    const container = grip ? game.playlists.get(grip.dataset.containerId) : null;
+    if (!isContainer(container)) return;
+    event.dataTransfer.effectAllowed = "copy";
+    event.dataTransfer.setData("text/plain", JSON.stringify({
+      type: "Playlist",
+      uuid: container.uuid,
+      [MODULE_ID]: CONTAINER_DRAG_MARKER
+    }));
+    // The ghost is the card, not the 24px grip.
+    const card = grip.closest(".ac-container-card-wrap");
+    if (card) event.dataTransfer.setDragImage(card, 0, card.offsetHeight / 2);
+  };
+
   #onContainerListDragOver = event => {
     if (!event.dataTransfer.types.includes(PICKER_DRAG_TYPE)) return;
     event.preventDefault();

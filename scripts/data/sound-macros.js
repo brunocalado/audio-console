@@ -6,11 +6,11 @@
  * it under the terms of the GNU General Public License version 3.
  */
 
-import { DEFAULT_PAD_ICON, MODULE_ID, SOUND_DRAG_MARKER } from "../constants.js";
+import { CONTAINER_DRAG_MARKER, CONTAINER_MACRO_ICON, DEFAULT_PAD_ICON, FLAGS, MODULE_ID, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, effectiveChannel, humanizeName } from "../helpers.js";
 import { soundSpecFor } from "../audio/playback.js";
 import { readEntryFlags } from "./flag-models.js";
-import { findMacroForPath, getMacroFolder } from "./repository.js";
+import { findMacroForContainer, findMacroForPath, getMacroFolder, isContainer } from "./repository.js";
 import { createMacro, createMacroFolder } from "./mutations.js";
 
 // A sound as a hotbar macro — a soundboard pad dragged there, or a library row dragged or saved
@@ -97,7 +97,7 @@ async function macroForSound(sound) {
     // had an icon picked fall back here exactly as the pad grid does, rather than storing the
     // default (constants.js DEFAULT_PAD_ICON).
     img: readEntryFlags(sound).icon || DEFAULT_PAD_ICON,
-    path: sound.path,
+    flags: { [FLAGS.SOUND_PATH]: sound.path },
     folder: folder?.id ?? null
   });
   return macro ? { macro, created: true } : null;
@@ -162,8 +162,77 @@ async function assignSoundMacro(data, slot) {
   }
 }
 
+/* -------------------------------------------- */
+/*  Containers                                  */
+/* -------------------------------------------- */
+
+// A playlist, soundboard or ambience card dragged onto the hotbar. Unlike a sound's macro, this
+// one cannot stand alone: what it opens is the module's own popout, so it calls the module's
+// macro-facing global. That is the same one-line `AudioConsole.Open()` the README already tells
+// a GM to type, given the container to open.
+
 /**
- * Claim the hotbar drops that carry one of our sounds — a pad or a library row.
+ * @param {Playlist} container
+ * @returns {string}
+ */
+function containerCommandFor(container) {
+  return [
+    `// Audio Console — opens ${JSON.stringify(container.name)} in its own window.`,
+    `AudioConsole.Open(${JSON.stringify(container.id)});`
+  ].join("\n");
+}
+
+/**
+ * The macro for a container — the one that already exists for it, or a new one. Reused by id,
+ * so renaming the container later leaves the macro working (and its name as the GM left it).
+ * @param {Playlist} container
+ * @returns {Promise<{macro: Macro, created: boolean}|null>} Null if the macro could not be made.
+ */
+async function macroForContainer(container) {
+  const existing = findMacroForContainer(container.id);
+  if (existing) return { macro: existing, created: false };
+
+  const folder = getMacroFolder() ?? await createMacroFolder();
+  const macro = await createMacro({
+    name: container.name,
+    command: containerCommandFor(container),
+    img: CONTAINER_MACRO_ICON,
+    flags: { [FLAGS.CONTAINER_ID]: container.id },
+    folder: folder?.id ?? null
+  });
+  return macro ? { macro, created: true } : null;
+}
+
+/**
+ * Answer a container card dropped on the hotbar. Same shape as assignSoundMacro.
+ * @param {object} data The drag payload.
+ * @param {string} slot The hotbar slot that was dropped on.
+ * @returns {Promise<void>}
+ */
+async function assignContainerMacro(data, slot) {
+  try {
+    const container = await foundry.documents.Playlist.implementation.fromDropData(data);
+    if (!isContainer(container)) return;
+    const result = await macroForContainer(container);
+    if (!result) return;
+    await game.user.assignHotbarMacro(result.macro, slot);
+    ui.notifications.info(game.i18n.format(
+      result.created ? "AUDIO_CONSOLE.Soundboard.Notify.MacroCreated" : "AUDIO_CONSOLE.Soundboard.Notify.MacroReused",
+      { name: result.macro.name }
+    ));
+  } catch (err) {
+    console.error(`${MODULE_ID} | could not put a container on the hotbar`, err);
+    ui.notifications.error(game.i18n.localize("AUDIO_CONSOLE.Soundboard.Notify.MacroFailed"));
+  }
+}
+
+/* -------------------------------------------- */
+/*  Hotbar                                      */
+/* -------------------------------------------- */
+
+/**
+ * Claim the hotbar drops that carry one of our sounds — a pad or a library row — or one of our
+ * containers.
  *
  * The callback has to answer synchronously — returning false is what stops core's own handling,
  * and core would otherwise resolve the payload as the PlaylistSound it says it is and leave a
@@ -180,8 +249,12 @@ async function assignSoundMacro(data, slot) {
  */
 export function registerHotbarDrop() {
   foundry.helpers.Hooks.on("hotbarDrop", (hotbar, data, slot) => {
-    if (data?.[MODULE_ID] !== SOUND_DRAG_MARKER) return;
-    if (!hotbar.locked) assignSoundMacro(data, slot);
+    const marker = data?.[MODULE_ID];
+    if ((marker !== SOUND_DRAG_MARKER) && (marker !== CONTAINER_DRAG_MARKER)) return;
+    if (!hotbar.locked) {
+      if (marker === CONTAINER_DRAG_MARKER) assignContainerMacro(data, slot);
+      else assignSoundMacro(data, slot);
+    }
     return false;
   });
 }

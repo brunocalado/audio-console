@@ -70,6 +70,7 @@ export const FLAGS = {
   FAVORITE: "favorite",       // Playlist: pinned to the rail's Favorites list
   MACRO_FOLDER: "macroFolder", // Folder: the module's folder in the Macro sidebar
   SOUND_PATH: "soundPath",    // Macro: the audio file it plays — the pad-to-hotbar dedupe key
+  CONTAINER_ID: "containerId", // Macro: the container it opens — the card-to-hotbar dedupe key
   PACK: "pack",               // Playlist: which content module built it, via the public API
   DUCK: "duck",               // Playlist (soundboard): lower the music channel while a pad sounds
   ACTIVE: "active",           // Playlist (ambience): switched on, whether or not a layer sounds right now
@@ -118,6 +119,14 @@ export const MAX_PAD_LABEL_LENGTH = 32;
 // in two files — the two grips' dragstart, and the hotbarDrop handler that answers them — so a
 // shared home is what keeps a typo in one of them from silently failing to match the others.
 export const SOUND_DRAG_MARKER = "sound";
+
+// The same key's value for a container card's grip: a playlist, soundboard or ambience dragged
+// onto the hotbar, which leaves a macro that opens that container in its own window.
+export const CONTAINER_DRAG_MARKER = "container";
+
+// What a container's hotbar macro shows. A container has no image of its own, so this is core's
+// own sound icon, which ships with every install the way DEFAULT_PAD_ICON does.
+export const CONTAINER_MACRO_ICON = "icons/svg/sound.svg";
 
 // The "Add from Library" picker's drag: a list of library paths bound for a container list, and
 // nowhere else. It travels under a MIME type of its own rather than as text/plain JSON, so core's

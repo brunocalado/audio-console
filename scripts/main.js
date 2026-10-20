@@ -30,12 +30,16 @@ function canOpen() {
 }
 
 /**
- * Open whichever mode the GM last left the console in; for a player, the shared soundboards. Compact is imported dynamically: most
- * launches are normal mode, and there is no reason to pay for the second class's module graph on
- * every entry-point registration.
+ * Open whichever mode the GM last left the console in; for a player, the shared soundboards.
+ * Given a container id, the GM gets that playlist, soundboard or ambience in its own popout
+ * instead — what a container card dragged onto the hotbar leaves behind. A player's id is ignored:
+ * popouts are the GM's console, and the player's own window already holds every board shared
+ * with them. Compact is imported dynamically: most launches are normal mode, and there is no
+ * reason to pay for the second class's module graph on every entry-point registration.
+ * @param {string} [containerId] A Playlist id.
  * @returns {Promise<void>}
  */
-async function openConsole() {
+async function openConsole(containerId) {
   // Checked here, not only on the two buttons: those decide whether a control is *drawn*, which
   // says nothing about `AudioConsole.Open()` typed into a macro by a player. The window would
   // render empty for them anyway, since the library is loaded on `ready` for the GM alone. A player
@@ -47,6 +51,13 @@ async function openConsole() {
     }
     const { AudioConsoleSharedBoard } = await import("./apps/shared-board.js");
     AudioConsoleSharedBoard.open();
+    return;
+  }
+  if (containerId) {
+    const container = game.playlists.get(containerId);
+    if (!container || !AudioConsoleNormal.openPopout(container)) {
+      ui.notifications.warn("AUDIO_CONSOLE.Controls.ContainerMissing", { localize: true });
+    }
     return;
   }
   if (game.settings.get(MODULE_ID, SETTINGS.DISPLAY_MODE) === DISPLAY_MODES.COMPACT) {
