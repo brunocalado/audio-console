@@ -38,7 +38,9 @@
     <div class="ac-automation-body">
         <ul class="ac-rule-list" data-rule-list aria-label="{{localize "AUDIO_CONSOLE.Automation.ListLabel"}}">
             {{#each automation.rules as |rule|}}
-            <li class="ac-rule{{#unless rule.enabled}} disabled{{/unless}}{{#if rule.missing}} broken{{/if}}"
+            {{!-- "off", never "disabled": core's global `.disabled` sets pointer-events: none, which
+                  the buttons inherit, so a switched-off rule could not be switched back on. --}}
+            <li class="ac-rule{{#unless rule.enabled}} off{{/unless}}{{#if rule.missing}} broken{{/if}}"
                 draggable="true" data-rule-id="{{rule.id}}">
 
                 <i class="fa-solid fa-grip-vertical ac-rule-handle" inert

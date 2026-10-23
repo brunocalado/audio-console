@@ -1931,11 +1931,15 @@
       background: var(--ac-surface-2);
     }
 
-    /* Dimmed, not hidden: a disabled rule is still one the GM wrote and still has to be findable
-       to switch back on. */
-    &.disabled {
+    /* Dimmed, not hidden: a switched-off rule is still one the GM wrote and still has to be
+       findable to switch back on. Only the sentence dims — the buttons keep full strength, because
+       the toggle is exactly what the GM is looking for on this row. */
+    &.off {
       color: var(--ac-text-dim);
-      opacity: 0.6;
+
+      .ac-rule-text {
+        opacity: 0.6;
+      }
     }
 
     &.broken {

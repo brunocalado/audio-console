@@ -1,3 +1,8 @@
+# Unreleased
+
+- [Fixed] A switched-off automation rule could not be switched back on, tested, edited, reordered or deleted.
+
+
 # 0.0.9
 
 ### Added
