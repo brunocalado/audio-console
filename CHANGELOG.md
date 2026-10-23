@@ -1,6 +1,8 @@
-# Unreleased
+# 0.0.10
 
-- [Fixed] A switched-off automation rule could not be switched back on, tested, edited, reordered or deleted.
+### Fixed
+
+* **A switched-off automation rule could not be touched again.** Once you turned a rule off, its row stopped responding to clicks, so you could not turn it back on, test, edit, reorder or delete it. A switched-off rule now only dims its description, and its buttons keep working.
 
 
 # 0.0.9
