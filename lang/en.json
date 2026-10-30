@@ -332,7 +332,9 @@
         "CreateSubmit": "Create",
         "PlaybackTitle": "Playback — \"{name}\"",
         "OnStartLabel": "Also Play When the Ambience Starts",
-        "OnStartHint": "Off, the layer's first play lands somewhere inside its first interval, so the ambience does not open with every timed layer at once."
+        "OnStartHint": "Off, the layer's first play lands somewhere inside its first interval, so the ambience does not open with every timed layer at once.",
+        "GroupLabel": "Variant Group",
+        "GroupHint": "Layers of this ambience with the same group name share one timer, and each time it fires one of them plays, never the same one twice in a row. Leave blank for a layer of its own."
       },
       "OnStartBadge": "Also plays when the ambience starts"
     },

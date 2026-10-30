@@ -1,3 +1,8 @@
+# Unreleased
+
+- [Added] Ambience layers can be grouped into variant sets: the set shares one random timer and each fire plays one of its files, never the same one twice in a row.
+
+
 # 0.0.10
 
 ### Fixed

@@ -8,7 +8,7 @@
 
 import { AUDIO_MODES, AUTOMATION_CHANGED_HOOK, CHANNEL_ICONS, CHANNEL_LABEL_KEYS, CONTAINER_KINDS, DEFAULT_PAD_ICON, DISPLAY_MODES, MODULE_ID, PAD_VIEWS, PICKER_DRAG_TYPE, SETTINGS, SECTIONS, SOUND_DRAG_MARKER } from "../constants.js";
 import { basenameOf, fitPadGrid, formatDuration, humanizeName, nextDefaultName, normalizePath } from "../helpers.js";
-import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused } from "../data/repository.js";
+import { containerKindOf, getContainers, getEntries, getFavorites, getQueue, getSectionFolder, isContainer, isOn, isPaused, randomSlots } from "../data/repository.js";
 import { buildContainerFlags, buildEntryFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 import {
   createContainers,
@@ -694,28 +694,75 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
       favorite: readContainerFlags(selected).favorite,
       playing: isOn(selected),
       fade: selected.fade ?? "",
-      layers: getEntries(selected).map(sound => {
-        const entry = library.getEntry(sound.path);
-        const flags = readEntryFlags(sound);
-        const volumeInput = foundry.audio.AudioHelper.volumeToInput(sound.volume);
-        return {
-          id: sound.id,
-          name: entry?.name || sound.name || humanizeName(basenameOf(sound.path)),
-          // The channel is a read-only indicator here: a layer carries the channel it was
-          // created with. The tags are a tooltip away.
-          channelIcon: entry ? CHANNEL_ICONS[entry.channel] : null,
-          channelLabel: entry ? game.i18n.localize(CHANNEL_LABEL_KEYS[entry.channel]) : null,
-          tagsLabel: (entry?.tags ?? []).join(", "),
-          hasLibraryEntry: !!entry,
-          playing: sound.playing,
-          loop: sound.repeat,
-          volumeInput,
-          volumeLabel: foundry.audio.AudioHelper.volumeToPercentage(volumeInput, { label: true }),
-          randomLabel: flags.random.enabled ? `${flags.random.interval}s` : null,
-          randomOnStart: flags.random.enabled && flags.random.onStart
-        };
-      })
+      layers: this.#ambienceLayers(selected)
     } : null;
+  }
+
+  /**
+   * An ambience's mixer rows in sort order, except that the members of a variant group are drawn
+   * together, at the position of the group's first member, under one header row that carries the
+   * group's timer — the timer belongs to the set, so the members drop their own badge.
+   * @param {Playlist} container
+   * @returns {object[]}
+   */
+  #ambienceLayers(container) {
+    const groups = new Map();
+    for (const { members } of randomSlots(container)) {
+      const { group } = readEntryFlags(members[0]);
+      if (group) groups.set(group, members);
+    }
+    const layers = [];
+    const drawn = new Set();
+    for (const sound of getEntries(container)) {
+      const { random, group } = readEntryFlags(sound);
+      const members = (random.enabled && group) ? groups.get(group) : null;
+      if (!members) {
+        layers.push(this.#ambienceLayer(sound, false));
+        continue;
+      }
+      if (drawn.has(group)) continue;
+      drawn.add(group);
+      const timer = readEntryFlags(members[0]).random;
+      layers.push({
+        groupHeader: true,
+        name: group,
+        count: members.length,
+        randomLabel: `${timer.interval}s`,
+        randomOnStart: timer.onStart
+      });
+      for (const member of members) layers.push(this.#ambienceLayer(member, true));
+    }
+    return layers;
+  }
+
+  /**
+   * One layer row of the ambience mixer.
+   * @param {PlaylistSound} sound
+   * @param {boolean} grouped A member of a variant group: its timer is shown on the group's header.
+   * @returns {object}
+   */
+  #ambienceLayer(sound, grouped) {
+    const entry = library.getEntry(sound.path);
+    const flags = readEntryFlags(sound);
+    const volumeInput = foundry.audio.AudioHelper.volumeToInput(sound.volume);
+    return {
+      id: sound.id,
+      grouped,
+      name: entry?.name || sound.name || humanizeName(basenameOf(sound.path)),
+      // The channel is a read-only indicator here: a layer carries the channel it was
+      // created with. The tags are a tooltip away.
+      channelIcon: entry ? CHANNEL_ICONS[entry.channel] : null,
+      channelLabel: entry ? game.i18n.localize(CHANNEL_LABEL_KEYS[entry.channel]) : null,
+      tagsLabel: (entry?.tags ?? []).join(", "),
+      hasLibraryEntry: !!entry,
+      playing: sound.playing,
+      loop: sound.repeat,
+      volumeInput,
+      volumeLabel: foundry.audio.AudioHelper.volumeToPercentage(volumeInput, { label: true }),
+      random: flags.random.enabled,
+      randomLabel: (flags.random.enabled && !grouped) ? `${flags.random.interval}s` : null,
+      randomOnStart: flags.random.enabled && flags.random.onStart
+    };
   }
 
   /**
@@ -2154,11 +2201,12 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     paintToggle(target, repeat);
     // Loop and random interval are two answers to one question (dialogs.js playbackField), so
     // turning loop on here turns random off in the same write — otherwise the row could reach the
-    // combination the dialog no longer offers. Turning loop off leaves random alone.
+    // combination the dialog no longer offers. Turning loop off leaves random alone. A group is a
+    // set of random layers, so a layer that starts looping leaves its group in the same write.
     const update = { _id: sound.id, repeat };
     const flags = readEntryFlags(sound);
-    if (repeat && flags.random.enabled) {
-      update.flags = { [MODULE_ID]: buildEntryFlags({ ...flags, random: { ...flags.random, enabled: false } }) };
+    if (repeat && (flags.random.enabled || flags.group)) {
+      update.flags = { [MODULE_ID]: buildEntryFlags({ ...flags, random: { ...flags.random, enabled: false }, group: null }) };
     }
     const [updated] = await updateEntries(container, [update]);
     // A refused write returns nothing and fires no hook, so the render that would correct the
@@ -2176,20 +2224,39 @@ export class AudioConsoleNormal extends AudioConsoleApplication {
     const sound = container?.sounds.get(target.dataset.soundId);
     if (!container || !sound) return;
     const flags = readEntryFlags(sound);
+    // Each group's timer is its first member's, the same member the scheduler reads.
+    const groups = {};
+    for (const { members } of randomSlots(container)) {
+      const first = readEntryFlags(members[0]);
+      if (first.group) groups[first.group] = first.random;
+    }
     const result = await promptLayerPlayback({
       name: sound.name,
       path: sound.path,
       volume: sound.volume,
       loop: sound.repeat,
-      random: flags.random
+      random: flags.random,
+      group: flags.group,
+      groups
     });
     if (!result) return;
+    // A group shares one timer, stored on every member: the rest of the group takes this save's
+    // range in the same write, so the members never disagree about it.
+    const others = result.group
+      ? container.sounds.filter(s => {
+        const other = readEntryFlags(s);
+        return (s.id !== sound.id) && other.random.enabled && (other.group === result.group);
+      })
+      : [];
     await updateEntries(container, [{
       _id: sound.id,
       volume: result.volume,
       repeat: result.loop,
-      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, random: result.random }) }
-    }]);
+      flags: { [MODULE_ID]: buildEntryFlags({ ...flags, random: result.random, group: result.group }) }
+    }, ...others.map(s => ({
+      _id: s.id,
+      flags: { [MODULE_ID]: buildEntryFlags({ ...readEntryFlags(s), random: result.random }) }
+    }))]);
   }
 
   /**

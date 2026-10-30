@@ -119,10 +119,8 @@ function percentLabel(input) {
  * @param {{interval: number, variance: number}} random
  * @returns {string}
  */
-function randomRangeFields(idPrefix, { interval, variance }) {
-  const round = value => Math.round(value * 10) / 10;
-  const min = Math.max(round(interval * (1 - variance)), MIN_RANDOM_WAIT_S);
-  const max = round(interval * (1 + variance));
+function randomRangeFields(idPrefix, random) {
+  const { min, max } = randomRangeBounds(random);
   return `
     <div class="form-group">
       <label for="${idPrefix}-min">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.MinLabel"))}</label>
@@ -133,6 +131,20 @@ function randomRangeFields(idPrefix, { interval, variance }) {
       <div class="form-fields"><input id="${idPrefix}-max" type="number" name="max" min="${MIN_RANDOM_WAIT_S}" step="any" value="${max}"></div>
       <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Soundboard.Dialogs.RangeHint"))}</p>
     </div>`;
+}
+
+/**
+ * A stored centre and spread as the shortest and longest wait randomRangeFields shows — also what
+ * the layer dialog writes into those fields when a group's timer is filled in.
+ * @param {{interval: number, variance: number}} random
+ * @returns {{min: number, max: number}}
+ */
+function randomRangeBounds({ interval, variance }) {
+  const round = value => Math.round(value * 10) / 10;
+  return {
+    min: Math.max(round(interval * (1 - variance)), MIN_RANDOM_WAIT_S),
+    max: round(interval * (1 + variance))
+  };
 }
 
 /**
@@ -1001,12 +1013,24 @@ export async function promptBoardColor({ name, color }) {
  *
  * Volume and loop are also live controls on the mixer row; this is the same two fields, not a
  * second copy of them.
+ *
+ * The variant group sits in the random fieldset too: a group is a set of random layers sharing one
+ * timer. Picking an existing group's name fills the range and the on-start box with that group's
+ * timer, on `change` rather than `input` so a name typed on the way to a longer one does not
+ * overwrite the range mid-word. The GM therefore sees the timer the group has before saving, and a
+ * change made after that is a deliberate change to the whole group — the save writes it to every
+ * member. Rejected: saving whatever the dialog shows with no fill (joining with the default range
+ * would silently re-time a tuned group), and ignoring the range when joining (the dialog would show
+ * one timer while the layer followed another).
  * @param {{name: string, path: string, volume: number, loop: boolean,
- *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean}}} layer
+ *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean},
+ *   group: string|null, groups: Object<string, {interval: number, variance: number, onStart: boolean}>}} layer
+ *   `groups` is every group already in this ambience and its current timer.
  * @returns {Promise<{volume: number, loop: boolean,
- *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean}}|null>}
+ *   random: {enabled: boolean, interval: number, variance: number, onStart: boolean}, group: string|null}|null>}
  */
-export async function promptLayerPlayback({ name, path, volume, loop, random }) {
+export async function promptLayerPlayback({ name, path, volume, loop, random, group, groups }) {
+  const groupOptions = Object.keys(groups).map(g => `<option value="${escapeHTML(g)}"></option>`).join("");
   const result = await DialogV2.input({
     window: { title: t("AUDIO_CONSOLE.Ambience.Dialogs.PlaybackTitle", { name }), icon: "fa-solid fa-dice" },
     classes: DIALOG_CLASSES,
@@ -1027,6 +1051,14 @@ export async function promptLayerPlayback({ name, path, volume, loop, random }) 
           <div class="form-fields"><input id="ac-layer-on-start" type="checkbox" name="onStart"${random.onStart ? " checked" : ""}></div>
           <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.OnStartHint"))}</p>
         </div>
+        <div class="form-group">
+          <label for="ac-layer-group">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.GroupLabel"))}</label>
+          <div class="form-fields">
+            <input id="ac-layer-group" type="text" name="group" list="ac-layer-groups" autocomplete="off" value="${escapeHTML(group ?? "")}">
+            <datalist id="ac-layer-groups">${groupOptions}</datalist>
+          </div>
+          <p class="hint">${escapeHTML(t("AUDIO_CONSOLE.Ambience.Dialogs.GroupHint"))}</p>
+        </div>
       </fieldset>
       </div>`,
     ok: { label: t("AUDIO_CONSOLE.Soundboard.Dialogs.ConfigSubmit"), icon: "fa-solid fa-check" },
@@ -1034,13 +1066,25 @@ export async function promptLayerPlayback({ name, path, volume, loop, random }) 
       bindSliderReadout(dialog.element);
       bindDuration(dialog.element, path);
       bindPlaybackMode(dialog);
+      const root = dialog.element;
+      root.querySelector("#ac-layer-group").addEventListener("change", event => {
+        const timer = groups[event.target.value.trim()];
+        if (!timer) return;
+        const { min, max } = randomRangeBounds(timer);
+        root.querySelector("#ac-layer-min").value = min;
+        root.querySelector("#ac-layer-max").value = max;
+        root.querySelector("#ac-layer-on-start").checked = timer.onStart;
+      });
     }
   });
   if (!result) return null;
+  const enabled = result.mode === "random";
   return {
     volume: foundry.audio.AudioHelper.inputToVolume(Number(result.volume)),
     loop: result.mode === "loop",
-    random: { enabled: result.mode === "random", ...readRandomRange(result), onStart: !!result.onStart }
+    random: { enabled, ...readRandomRange(result), onStart: !!result.onStart },
+    // A group means nothing outside Random Interval, so leaving it ungroups the layer.
+    group: (enabled && result.group?.trim()) || null
   };
 }
 

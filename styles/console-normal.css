@@ -1470,6 +1470,30 @@
     }
   }
 
+  /* A variant group's header: the set's name, its size and its shared timer, on one band above the
+     members. Not a grid like .ac-layer — it has no fader or buttons, so there is no column to keep
+     in line. */
+  .ac-layer-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px var(--ac-gap);
+    border-bottom: 1px solid var(--ac-border);
+    background: var(--ac-surface-1);
+    color: var(--ac-text-dim);
+    line-height: 1;
+
+    & .ac-layer-name {
+      color: var(--ac-text);
+    }
+  }
+
+  /* A member is indented inside its name cell only; the grid tracks are the same as any layer's,
+     so the faders and buttons of grouped and ungrouped rows still form one column. */
+  .ac-layer.grouped .ac-layer-title {
+    padding-inline-start: 16px;
+  }
+
   /* The name and, when there is one, the random-interval badge beside it. */
   .ac-layer-title {
     display: flex;

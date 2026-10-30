@@ -118,12 +118,21 @@
             {{#if selectedAmbience}}
             <ul class="ac-layer-list" data-layer-list data-container-id="{{selectedAmbience.id}}" aria-label="{{localize "AUDIO_CONSOLE.Ambience.LayerListLabel"}}">
                 {{#each selectedAmbience.layers as |layer|}}
+                {{#if layer.groupHeader}}
+                {{!-- A variant group's header: the set's name, how many takes it holds and the one
+                      timer they share. Not a layer — it has no fader or buttons of its own. --}}
+                <li class="ac-layer-group" role="presentation">
+                    <span class="ac-layer-name" title="{{layer.name}}">{{layer.name}}</span>
+                    <span class="ac-badge">×{{layer.count}}</span>
+                    {{#if layer.randomLabel}}<span class="ac-badge ac-layer-badge"{{#if layer.randomOnStart}} data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.OnStartBadge"}}" aria-label="{{layer.randomLabel}} — {{localize "AUDIO_CONSOLE.Ambience.OnStartBadge"}}"{{/if}}>{{#if layer.randomOnStart}}<i class="fa-solid fa-hourglass-start" inert></i> {{/if}}{{layer.randomLabel}}</span>{{/if}}
+                </li>
+                {{else}}
                 {{!-- A mixing desk reads down its columns, so every cell is a fixed grid track and
                       only the name absorbs the spare width (console-normal.css .ac-layer). What
                       varies per layer — the name's length, whether it is in the library, whether it
                       has a random interval — varies inside its own cell and never moves the one
                       beside it. --}}
-                <li class="ac-layer{{#if layer.playing}} playing{{/if}}" data-sound-id="{{layer.id}}">
+                <li class="ac-layer{{#if layer.grouped}} grouped{{/if}}{{#if layer.playing}} playing{{/if}}" data-sound-id="{{layer.id}}">
                     {{!-- The random-interval badge rides with the name rather than owning a track of its
                           own. It is the only thing on this row that appears and disappears, and a
                           reserved track for it sat empty on every other layer — a hole between the
@@ -168,7 +177,7 @@
                                 data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.Actions.Loop"}}">
                             <i class="fa-solid fa-repeat" inert></i>
                         </button>
-                        <button type="button" class="ac-layer-action{{#if layer.randomLabel}} active{{/if}}"
+                        <button type="button" class="ac-layer-action{{#if layer.random}} active{{/if}}"
                                 data-action="configureLayerPlayback" data-sound-id="{{layer.id}}"
                                 aria-label="{{localize "AUDIO_CONSOLE.Ambience.Actions.Playback"}}"
                                 data-tooltip="{{localize "AUDIO_CONSOLE.Ambience.Actions.Playback"}}">
@@ -181,6 +190,7 @@
                         </button>
                     </div>
                 </li>
+                {{/if}}
                 {{else}}
                 <li class="ac-empty-hint">{{localize "AUDIO_CONSOLE.Ambience.EmptyLayers"}}</li>
                 {{/each}}
