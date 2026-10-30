@@ -8,7 +8,7 @@
 
 import { MODULE_ID, FLAGS, CONTAINER_KINDS, SECTIONS } from "../constants.js";
 import { normalizePath } from "../helpers.js";
-import { readContainerFlags, readSectionFlags } from "./flag-models.js";
+import { readContainerFlags, readEntryFlags, readSectionFlags } from "./flag-models.js";
 
 // Read-only, pure functions over the live collections. Nothing here caches, and nothing here
 // writes — creation lives in mutations.js and is orchestrated by bootstrap.js.
@@ -126,6 +126,27 @@ export function getQueue() {
 export function getEntries(container) {
   if (!container) return [];
   return [...container.sounds].sort((a, b) => (a.sort - b.sort) || a.name.localeCompare(b.name));
+}
+
+/**
+ * A container's random-interval layers as the units the scheduler times: one per ungrouped layer,
+ * one per group. Grouping is by name within this container only, so two ambiences may each have
+ * an "Innkeeper". A grouped layer whose random is off is no member: the name is inert while the
+ * layer loops or plays once.
+ * @param {Playlist} container
+ * @returns {{key: string, members: PlaylistSound[]}[]} The key is the sound id or `group:<name>`;
+ *   members are in sort order, and the first one's random config is the group's timer.
+ */
+export function randomSlots(container) {
+  const slots = new Map();
+  for (const sound of getEntries(container)) {
+    const { random, group } = readEntryFlags(sound);
+    if (!random.enabled) continue;
+    const key = group ? `group:${group}` : sound.id;
+    if (slots.has(key)) slots.get(key).members.push(sound);
+    else slots.set(key, { key, members: [sound] });
+  }
+  return [...slots.values()];
 }
 
 /**

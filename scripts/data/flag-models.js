@@ -104,7 +104,14 @@ export class EntryFlags extends foundry.abstract.DataModel {
       // Soundboard pads only: the name shown on the pad face. null means "no choice made" and the
       // face follows the track's own name, the same arrangement as `icon` above, so renaming the
       // track in the library still reaches every pad that was never given a name of its own.
-      label: new fields.StringField({ required: false, nullable: true, initial: null })
+      label: new fields.StringField({ required: false, nullable: true, initial: null }),
+      // Ambience layers only: the name of the set of variant files this layer belongs to. Layers of
+      // one ambience sharing a name fire as one random timer that plays one of them, so a tavern's
+      // four innkeeper lines read as one voice rather than four. Only meaningful while random is
+      // enabled. Members stay ordinary layers with their own path rather than one entry holding a
+      // list of files: the path is what Sync, the library rows and consolidation key on, and an
+      // entry whose path changed on every fire would read as a new sound to all of them.
+      group: new fields.StringField({ required: false, nullable: true, blank: false, initial: null })
     };
   }
 }
@@ -210,14 +217,15 @@ export function readContainerFlags(playlist) {
 /**
  * @param {PlaylistSound} sound
  * @returns {{random: {enabled: boolean, interval: number, variance: number, onStart: boolean}, color: string|null,
- *   icon: string|null, label: string|null}}
+ *   icon: string|null, label: string|null, group: string|null}}
  */
 export function readEntryFlags(sound) {
   return readThrough(EntryFlags, {
     random: sound?.getFlag(MODULE_ID, FLAGS.RANDOM),
     color: sound?.getFlag(MODULE_ID, FLAGS.COLOR),
     icon: sound?.getFlag(MODULE_ID, FLAGS.ICON),
-    label: sound?.getFlag(MODULE_ID, FLAGS.LABEL)
+    label: sound?.getFlag(MODULE_ID, FLAGS.LABEL),
+    group: sound?.getFlag(MODULE_ID, FLAGS.GROUP)
   }, sound);
 }
 

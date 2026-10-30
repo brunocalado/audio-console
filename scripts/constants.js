@@ -74,7 +74,8 @@ export const FLAGS = {
   PACK: "pack",               // Playlist: which content module built it, via the public API
   DUCK: "duck",               // Playlist (soundboard): lower the music channel while a pad sounds
   ACTIVE: "active",           // Playlist (ambience): switched on, whether or not a layer sounds right now
-  VIEW: "view"                // Playlist (soundboard): how its pads are laid out — PAD_VIEWS
+  VIEW: "view",               // Playlist (soundboard): how its pads are laid out — PAD_VIEWS
+  GROUP: "group"              // PlaylistSound (ambience): the variant set this layer belongs to
 };
 
 // How a soundboard draws its pads. Per board, on the document (ContainerFlags.view), so a board's

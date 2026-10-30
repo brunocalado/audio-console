@@ -8,7 +8,7 @@
 
 import { CONTAINER_KINDS, MODULE_ID } from "../constants.js";
 import { canWrite, normalizePath } from "../helpers.js";
-import { containerKindOf, getContainers, getEntries, getQueue, isOn, isPaused } from "../data/repository.js";
+import { containerKindOf, getContainers, getEntries, getQueue, isOn, isPaused, randomSlots } from "../data/repository.js";
 import { clearContainer, createEntries } from "../data/mutations.js";
 import { buildContainerFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 
@@ -76,16 +76,19 @@ export async function playContainer(container) {
  * on start. The rest are left to random-scheduler.js, which spreads their first fires across their
  * first interval when it sees the ambience come on.
  *
+ * A group of variant layers marked to play on start starts one member chosen at random, not all of
+ * them: the set is one voice. Its config is its first member's, as in the scheduler.
+ *
  * The same single write core's playAll makes for a SIMULTANEOUS playlist (v14.368), with the
  * sounds that should stay quiet left out of it, and the `active` flag set in the same write.
  * @param {Playlist} container
  * @returns {Promise<Playlist>}
  */
 function startAmbience(container) {
-  const starts = container.sounds.filter(s => {
-    const { random } = readEntryFlags(s);
-    return !random.enabled || random.onStart;
-  });
+  const starts = container.sounds.filter(s => !readEntryFlags(s).random.enabled);
+  for (const { members } of randomSlots(container)) {
+    if (readEntryFlags(members[0]).random.onStart) starts.push(members[Math.floor(Math.random() * members.length)]);
+  }
   return container.update({
     playing: true,
     sounds: starts.map(s => ({ _id: s.id, playing: true })),

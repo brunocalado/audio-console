@@ -7,7 +7,7 @@
  */
 
 import { CONTAINER_KINDS, FLAGS, MIN_RANDOM_WAIT_S, MODULE_ID } from "../constants.js";
-import { containerKindOf, getContainers, getEntries } from "../data/repository.js";
+import { containerKindOf, getContainers, randomSlots } from "../data/repository.js";
 import { onContainerChange } from "../data/sync.js";
 import { buildContainerFlags, readContainerFlags, readEntryFlags } from "../data/flag-models.js";
 import * as playback from "./playback.js";
@@ -47,12 +47,32 @@ const REFRESH_DEBOUNCE_MS = 250;
  */
 let generation = 0;
 
-/** @type {Map<string, number>} PlaylistSound id -> setTimeout handle. */
+// The unit a timer belongs to is a slot (repository.js randomSlots()): an ungrouped random layer
+// or pad, or a group of variant layers that fire as one. A group gets one timer rather than one per
+// member because N timers at N× the interval are not one timer at 1×: their fires bunch up and
+// leave long gaps, and two variants of one voice can sound over each other.
+
+/** @type {Map<string, number>} `${containerId}:${slotKey}` -> setTimeout handle. A group key is
+ * only unique inside its container, hence the container id in front. */
 const timers = new Map();
+
+/** Timer key -> sound id it last played, so a group never plays the same take twice in a row. Not
+ * cleared by stop(): losing it on a reload costs at most one repeat. */
+const lastPlayed = new Map();
 
 /** Every container this scheduler considers, regardless of kind — see the module doc comment. */
 function scheduledContainers() {
   return Object.values(CONTAINER_KINDS).flatMap(kind => getContainers(kind));
+}
+
+/**
+ * One slot of a container by key, resolved fresh from the current flags.
+ * @param {Playlist} container
+ * @param {string} slotKey
+ * @returns {{key: string, members: PlaylistSound[]}|undefined}
+ */
+function findSlot(container, slotKey) {
+  return randomSlots(container).find(slot => slot.key === slotKey);
 }
 
 /**
@@ -88,9 +108,7 @@ export function start() {
   if (!game.user.isActiveGM) return;
   const gen = generation;
   for (const container of scheduledContainers()) {
-    for (const sound of getEntries(container)) {
-      if (readEntryFlags(sound).random.enabled) scheduleNext(gen, container.id, sound.id);
-    }
+    for (const slot of randomSlots(container)) scheduleNext(gen, container.id, slot.key);
   }
 }
 
@@ -98,54 +116,59 @@ export function start() {
 export const refresh = foundry.utils.debounce(start, REFRESH_DEBOUNCE_MS);
 
 /**
- * Arm the next fire for one entry. Re-resolves the container and sound by id and re-reads the
- * flag fresh rather than trusting what the caller already had in hand — a GM can reconfigure the
+ * Arm the next fire for one slot. Re-resolves the container and slot by key and re-reads the
+ * flags fresh rather than trusting what the caller already had in hand — a GM can reconfigure the
  * interval in the gap between one fire and the next schedule, and rule 4's "read config on every
- * fire" is honoured here too, not only inside the fire callback below.
+ * fire" is honoured here too, not only inside the fire callback below. A group's timer is its
+ * first member's random config; the layer dialog writes the same config to every member.
  * @param {number} gen
  * @param {string} containerId
- * @param {string} soundId
+ * @param {string} slotKey
  * @param {number} [delay] Milliseconds, in place of the usual interval × (1 ± variance).
  * @param {number} [afterMs] Added to the usual delay — the length of a sound that just started.
  */
-function scheduleNext(gen, containerId, soundId, delay, afterMs = 0) {
+function scheduleNext(gen, containerId, slotKey, delay, afterMs = 0) {
   if (gen !== generation) return;
   const container = game.playlists.get(containerId);
-  const sound = container?.sounds.get(soundId);
-  if (!container || !sound) return; // pad or soundboard deleted
-  const { random } = readEntryFlags(sound);
-  if (!random.enabled) return; // turned off since the last schedule
+  const slot = container && findSlot(container, slotKey);
+  if (!slot) return; // deleted, random turned off, or the group emptied since the last schedule
+  const { random } = readEntryFlags(slot.members[0]);
 
-  const timeoutId = setTimeout(() => fire(gen, containerId, soundId), delay ?? (computeDelay(random) + afterMs));
-  timers.set(soundId, timeoutId);
+  const timeoutId = setTimeout(() => fire(gen, containerId, slotKey), delay ?? (computeDelay(random) + afterMs));
+  timers.set(`${containerId}:${slotKey}`, timeoutId);
 }
 
 /**
- * A timer landed. Rule 7: a pad already sounding is skipped rather than fired over — the cycle
- * still continues on schedule, it just does not play a second time on top of itself.
+ * A timer landed. Rule 7: a slot already sounding is skipped rather than fired over — the cycle
+ * still continues on schedule, it just does not play a second time on top of itself. For a group
+ * that means any member sounding, so two variants of one voice never overlap.
  * @param {number} gen
  * @param {string} containerId
- * @param {string} soundId
+ * @param {string} slotKey
  */
-function fire(gen, containerId, soundId) {
-  timers.delete(soundId);
+function fire(gen, containerId, slotKey) {
+  const timerKey = `${containerId}:${slotKey}`;
+  timers.delete(timerKey);
   if (gen !== generation) return; // superseded — this timer is a ghost
   if (!game.user.isActiveGM) return; // lost the role since scheduling; refresh() will pick it up
 
   const container = game.playlists.get(containerId);
-  const sound = container?.sounds.get(soundId);
-  if (!container || !sound) return;
-  const { random } = readEntryFlags(sound);
-  if (!random.enabled) return; // disabled meanwhile — do not reschedule
+  const slot = container && findSlot(container, slotKey);
+  if (!slot) return; // deleted or disabled meanwhile — do not reschedule
+  const { members } = slot;
 
   // The cycle keeps running while the ambience is stopped, so pressing Play picks it up without a
   // rebuild — the timers are cheap, the playSound() write they would otherwise make is not.
   // The flag, not `playing`: see ContainerFlags.active.
   const live = (containerKindOf(container) !== CONTAINER_KINDS.AMBIENCE) || readContainerFlags(container).active;
-  if (!live || sound.playing) {
-    scheduleNext(gen, containerId, soundId);
+  if (!live || members.some(s => s.playing)) {
+    scheduleNext(gen, containerId, slotKey);
     return;
   }
+  // Any member but the one played last; a group of one keeps its only member.
+  const pool = (members.length > 1) ? members.filter(s => s.id !== lastPlayed.get(timerKey)) : members;
+  const sound = pool[Math.floor(Math.random() * pool.length)];
+  lastPlayed.set(timerKey, sound.id);
   playback.playEntry(container, sound);
 
   // The wait is counted from the end of the sound, so the GM's range is the silence between two
@@ -157,7 +180,7 @@ function fire(gen, containerId, soundId) {
   // read, so this is one metadata fetch per file per session, taken only for sounds that fire —
   // never up front for every random entry in the world. An unreadable file adds nothing.
   probeDuration(sound.path).then(seconds => {
-    scheduleNext(gen, containerId, soundId, undefined, (seconds ?? 0) * 1000);
+    scheduleNext(gen, containerId, slotKey, undefined, (seconds ?? 0) * 1000);
   });
 }
 
@@ -171,12 +194,11 @@ function fire(gen, containerId, soundId) {
 function restartAmbience(container) {
   if (!game.user.isActiveGM) return;
   const gen = generation;
-  for (const sound of getEntries(container)) {
-    const { random } = readEntryFlags(sound);
-    if (!random.enabled) continue;
-    clearTimeout(timers.get(sound.id));
+  for (const slot of randomSlots(container)) {
+    const { random } = readEntryFlags(slot.members[0]);
+    clearTimeout(timers.get(`${container.id}:${slot.key}`));
     const first = random.onStart ? undefined : Math.max(Math.random() * random.interval, MIN_RANDOM_WAIT_S) * 1000;
-    scheduleNext(gen, container.id, sound.id, first);
+    scheduleNext(gen, container.id, slot.key, first);
   }
 }
 
