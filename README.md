@@ -93,6 +93,11 @@ instead of looping. Timed layers don't all go off the moment the ambience starts
 play is spread out, unless you tick **Also Play When the Ambience Starts** for the ones that should.
 Play all, stop all, or mix live.
 
+Several recordings of the same sound can share one timer, such as four different laughs in a
+tavern. Type the same name in **Variant Group** for each of those layers. Each time the timer
+fires, one of them plays, never the same one twice in a row, and the mixer shows the set under one
+heading.
+
 ![An ambience mix with its layers](docs/ambience.webp)
 
 ### Automation

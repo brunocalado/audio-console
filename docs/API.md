@@ -53,8 +53,11 @@ Hooks.once("setup", () => {
         sounds: [
           { path: "modules/my-adventure-audio/audio/crowd.ogg", channel: "environment", volume: 0.5 },
           { path: "modules/my-adventure-audio/audio/lute.ogg", channel: "music", volume: 0.4 },
-          { path: "modules/my-adventure-audio/audio/thunder.ogg", channel: "environment", repeat: false,
-            random: { enabled: true, interval: 90, variance: 0.6 } }
+          // Two takes of one sound in a variant group: one timer, one of them per fire.
+          { path: "modules/my-adventure-audio/audio/thunder-1.ogg", channel: "environment", repeat: false,
+            group: "Thunder", random: { enabled: true, interval: 90, variance: 0.6 } },
+          { path: "modules/my-adventure-audio/audio/thunder-2.ogg", channel: "environment", repeat: false,
+            group: "Thunder", random: { enabled: true, interval: 90, variance: 0.6 } }
         ]
       }
     ]
@@ -128,7 +131,7 @@ const { container, created, added, skipped } = await AudioConsole.import(spec);
 | `icon` | `string` | — | Soundboard pads: the image the pad face shows. Must be an image path. |
 | `color` | `"#rrggbb" \| null` | `null` | Soundboard pads: the pad's accent colour. |
 | `random` | `{ enabled, interval?, variance?, onStart? }` | off | Pads and ambience layers: fire at a random interval. `interval` in seconds (centre of the range, minimum 2, default 60); `variance` `0`–`1` as a fraction of the interval (default 0.5). `onStart` (ambience layers, default `false`): also play the moment the ambience starts; when off, the layer's first fire lands somewhere inside its first interval. |
-| `group` | `string` | — | Ambience layers: layers with the same name share one random timer, and each fire plays one of them, never the same one twice in a row. Every member needs `random` with `enabled: true` and the same `interval`, `variance` and `onStart`. |
+| `group` | `string` | — | Ambience layers: layers with the same name share one random timer, and each fire plays one of them, never the same one twice in a row. A fire is skipped while any member is still sounding, and with `onStart` only one member plays when the ambience starts. Every member needs `random` with `enabled: true` and the same `interval`, `variance` and `onStart`, compared after defaults: an omitted `interval` and `interval: 60` agree. |
 
 ### What it does
 
@@ -153,8 +156,8 @@ const { container, created, added, skipped } = await AudioConsole.import(spec);
 
 Bad `kind`, `channel`, `volume`, `color`, `fade`, `random`, `group`; `shuffle` on a non-playlist;
 `group` outside an ambience; members of one `group` without `random.enabled: true` or with
-different `interval`, `variance` or `onStart`; a missing `name` or `path`; not a GM; called before `ready`. A non-image `icon` is refused by the
-document itself and surfaces as that error.
+different `interval`, `variance` or `onStart`; a missing `name` or `path`; not a GM; called before
+`ready`. A non-image `icon` is refused by the document itself and surfaces as that error.
 
 ### From a macro
 
@@ -213,6 +216,11 @@ defines**:
 
 For pack authors this means: **a field you omit from a spec is one the GM owns.** If your pack
 has no opinion about a pad's volume, leave `volume` out and Sync will never touch it.
+
+The same holds for `group`, and there is no value that clears it. A pack version that drops a
+sound's `group` leaves the group in every world that already has it; it is the GM's from then on,
+to change in the layer's dialog. Splitting a pack's group apart means renaming the members'
+groups, not removing them.
 
 The same operation is available as `AudioConsole.syncPack(id)` for a macro, with the same rules
 and no confirmation.
