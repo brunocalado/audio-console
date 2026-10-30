@@ -110,7 +110,12 @@ export class EntryFlags extends foundry.abstract.DataModel {
       // four innkeeper lines read as one voice rather than four. Only meaningful while random is
       // enabled. Members stay ordinary layers with their own path rather than one entry holding a
       // list of files: the path is what Sync, the library rows and consolidation key on, and an
-      // entry whose path changed on every fire would read as a new sound to all of them.
+      // entry whose path changed on every fire would read as a new sound to all of them. Nor is the
+      // group a list on the container that members point at: members would stop being random
+      // layers, and startAmbience() and the bed check in the scheduler, which tell bed from timed
+      // by random.enabled, would start every member as a bed. The price is that the shared timer is
+      // stored on every member, written to all of them together by the layer dialog. No weights:
+      // what keeps a set alive is not repeating a take twice in a row, which needs no setting.
       group: new fields.StringField({ required: false, nullable: true, blank: false, initial: null })
     };
   }
