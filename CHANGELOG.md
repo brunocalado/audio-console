@@ -1,6 +1,7 @@
 # Unreleased
 
 - [Added] Ambience layers can be grouped into variant sets: the set shares one random timer and each fire plays one of its files, never the same one twice in a row.
+- [Added] Pack spec: an ambience sound can name a `group`.
 
 
 # 0.0.10

@@ -128,6 +128,7 @@ const { container, created, added, skipped } = await AudioConsole.import(spec);
 | `icon` | `string` | — | Soundboard pads: the image the pad face shows. Must be an image path. |
 | `color` | `"#rrggbb" \| null` | `null` | Soundboard pads: the pad's accent colour. |
 | `random` | `{ enabled, interval?, variance?, onStart? }` | off | Pads and ambience layers: fire at a random interval. `interval` in seconds (centre of the range, minimum 2, default 60); `variance` `0`–`1` as a fraction of the interval (default 0.5). `onStart` (ambience layers, default `false`): also play the moment the ambience starts; when off, the layer's first fire lands somewhere inside its first interval. |
+| `group` | `string` | — | Ambience layers: layers with the same name share one random timer, and each fire plays one of them, never the same one twice in a row. Every member needs `random` with `enabled: true` and the same `interval`, `variance` and `onStart`. |
 
 ### What it does
 
@@ -150,8 +151,9 @@ const { container, created, added, skipped } = await AudioConsole.import(spec);
 
 ### Throws
 
-Bad `kind`, `channel`, `volume`, `color`, `fade`, `random`; `shuffle` on a non-playlist; a
-missing `name` or `path`; not a GM; called before `ready`. A non-image `icon` is refused by the
+Bad `kind`, `channel`, `volume`, `color`, `fade`, `random`, `group`; `shuffle` on a non-playlist;
+`group` outside an ambience; members of one `group` without `random.enabled: true` or with
+different `interval`, `variance` or `onStart`; a missing `name` or `path`; not a GM; called before `ready`. A non-image `icon` is refused by the
 document itself and surfaces as that error.
 
 ### From a macro
@@ -201,7 +203,7 @@ defines**:
 
 | Sync overwrites | Sync leaves alone |
 |---|---|
-| On the pack's sounds: `volume`, `repeat`, `name`, `channel`, `icon`, `color`, `random` — each only where the spec sets it, and inside `random` only the keys the spec sets | A sound the GM added to the pack's board |
+| On the pack's sounds: `volume`, `repeat`, `name`, `channel`, `icon`, `color`, `random`, `group` — each only where the spec sets it, and inside `random` only the keys the spec sets | A sound the GM added to the pack's board |
 | On the pack's containers: `color`, `favorite`, `fade`, `shuffle` | The container's name |
 | On the pack's library rows (`library` and every container's sounds): `name`, `channel`, `volume` | Any container the GM built, whatever its name |
 | Sounds the spec lists that the container lacks are added | Tags: they only ever merge, so a tag the GM added stays |

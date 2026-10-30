@@ -128,8 +128,30 @@ function validateSound(sound, index, defaults) {
     // Image-ness is the FilePathField's call (EntryFlags.icon); its error is clear enough as-is.
     icon: optional(sound.icon, nonEmptyString, `${label}.icon`),
     color: optional(sound.color, color, `${label}.color`),
-    random: optional(sound.random, random, `${label}.random`)
+    random: optional(sound.random, random, `${label}.random`),
+    group: optional(sound.group, nonEmptyString, `${label}.group`)
   };
+}
+
+/**
+ * The container-level rules for variant groups, once every sound is valid on its own. A group is an
+ * ambience concept, and its members must agree on one timer: the scheduler reads the first
+ * member's, so a spec that disagrees with itself would let the order of its sounds decide the
+ * timer silently.
+ * @param {string} kind
+ * @param {object[]} sounds Validated.
+ */
+function validateGroups(kind, sounds) {
+  const timers = new Map();
+  sounds.forEach((sound, i) => {
+    if (sound.group === undefined) return;
+    if (kind !== CONTAINER_KINDS.AMBIENCE) fail(`sounds[${i}].group is only valid in an ambience`);
+    if (sound.random?.enabled !== true) fail(`sounds[${i}].group "${sound.group}" needs random with enabled: true`);
+    const { interval, variance, onStart } = sound.random;
+    const timer = JSON.stringify([interval, variance, onStart]);
+    if (!timers.has(sound.group)) timers.set(sound.group, timer);
+    else if (timers.get(sound.group) !== timer) fail(`group "${sound.group}": every sound must carry the same random interval, variance and onStart (sounds[${i}] differs)`);
+  });
 }
 
 /** @param {unknown} folders @returns {Record<string, string>} Normalised folder path → name. */
@@ -173,6 +195,8 @@ function validateSpec(spec) {
     channel: spec.channel === undefined ? undefined : oneOf(spec.channel, Object.values(CHANNELS), "channel"),
     tags: spec.tags === undefined ? [] : tags(spec.tags, "tags")
   };
+  const sounds = spec.sounds.map((sound, i) => validateSound(sound, i, defaults));
+  validateGroups(kind, sounds);
   return {
     kind,
     name: nonEmptyString(spec.name, "name"),
@@ -180,7 +204,7 @@ function validateSpec(spec) {
     favorite: optional(spec.favorite, boolean, "favorite"),
     fade: optional(spec.fade, fade, "fade"),
     shuffle: optional(spec.shuffle, boolean, "shuffle"),
-    sounds: spec.sounds.map((sound, i) => validateSound(sound, i, defaults))
+    sounds
   };
 }
 
@@ -243,7 +267,7 @@ function definedOf(object) {
  */
 function entrySpecFor(sound, kind) {
   const row = library.getEntry(sound.path);
-  const flags = definedOf({ random: sound.random, icon: sound.icon, color: sound.color });
+  const flags = definedOf({ random: sound.random, icon: sound.icon, color: sound.color, group: sound.group });
   return {
     ...soundSpecFor(row),
     name: sound.name ?? row.name,
@@ -445,7 +469,7 @@ export async function syncPack(id) {
       const existing = byPath.get(sound.path);
       if (!existing) continue;
       const update = definedOf({ name: sound.name, channel: sound.channel, volume: sound.volume, repeat: sound.repeat });
-      const flags = definedOf({ random: sound.random, icon: sound.icon, color: sound.color });
+      const flags = definedOf({ random: sound.random, icon: sound.icon, color: sound.color, group: sound.group });
       // Spread the current scope first: a flag write replaces the whole of it, and a flag the
       // spec does not define is the GM's, never a pack's.
       // random merges one level deeper for the same reason: a key the pack leaves out of it (an
