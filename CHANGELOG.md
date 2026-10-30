@@ -1,7 +1,9 @@
-# Unreleased
+# 0.1.0
 
-- [Added] Ambience layers can be grouped into variant sets: the set shares one random timer and each fire plays one of its files, never the same one twice in a row.
-- [Added] Pack spec: an ambience sound can name a `group`.
+### Added
+
+* **Variant groups for ambience layers.** Several recordings of the same sound, such as four different laughs in a tavern, can share one random timer: give those layers the same **Variant Group** name in their playback dialog. Each time the timer fires, one of them plays, never the same one twice in a row and never two at once, and the mixer shows the set under one heading. Picking an existing group shows its timer before you save, so joining a group never changes it by surprise.
+* **`group` in the pack spec.** Content packs can declare variant groups on ambience sounds, and **Sync** applies them. See `docs/API.md`.
 
 
 # 0.0.10
