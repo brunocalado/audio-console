@@ -147,7 +147,9 @@ function validateGroups(kind, sounds) {
     if (sound.group === undefined) return;
     if (kind !== CONTAINER_KINDS.AMBIENCE) fail(`sounds[${i}].group is only valid in an ambience`);
     if (sound.random?.enabled !== true) fail(`sounds[${i}].group "${sound.group}" needs random with enabled: true`);
-    const { interval, variance, onStart } = sound.random;
+    // Compared as stored, defaults filled and clamps applied, so `interval: 60` and an omitted
+    // interval are the same timer rather than a refused spec.
+    const { interval, variance, onStart } = buildEntryFlags({ random: sound.random }).random;
     const timer = JSON.stringify([interval, variance, onStart]);
     if (!timers.has(sound.group)) timers.set(sound.group, timer);
     else if (timers.get(sound.group) !== timer) fail(`group "${sound.group}": every sound must carry the same random interval, variance and onStart (sounds[${i}] differs)`);
